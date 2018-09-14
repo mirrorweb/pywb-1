@@ -30,6 +30,8 @@ import traceback
 import requests
 import logging
 
+from pywb.hooks import hooked
+
 
 # ============================================================================
 class FrontEndApp(object):
@@ -159,6 +161,7 @@ class FrontEndApp(object):
         logging.info(msg.format(indexer.root_path, auto_interval))
         indexer.start()
 
+    @hooked()
     def serve_home(self, environ):
         home_view = BaseInsertView(self.rewriterapp.jinja_env, 'index.html')
         fixed_routes = self.warcserver.list_fixed_routes()
@@ -174,6 +177,7 @@ class FrontEndApp(object):
 
         return WbResponse.text_response(content, content_type='text/html; charset="utf-8"')
 
+    @hooked()
     def serve_static(self, environ, coll='', filepath=''):
         if coll:
             path = os.path.join(self.warcserver.root_dir, coll, self.static_dir)
@@ -201,6 +205,7 @@ class FrontEndApp(object):
 
         return metadata
 
+    @hooked()
     def serve_coll_page(self, environ, coll='$root'):
         if not self.is_valid_coll(coll):
             self.raise_not_found(environ, 'No handler for "/{0}"'.format(coll))
@@ -222,6 +227,7 @@ class FrontEndApp(object):
 
         return WbResponse.text_response(content, content_type='text/html; charset="utf-8"')
 
+    @hooked()
     def serve_cdx(self, environ, coll='$root'):
         base_url = self.rewriterapp.paths['cdx-server']
 
@@ -245,28 +251,24 @@ class FrontEndApp(object):
         except Exception as e:
             return WbResponse.text_response('Error: ' + str(e), status='400 Bad Request')
 
+    @hooked()
     def serve_record(self, environ, coll='$root', url=''):
         if coll in self.warcserver.list_fixed_routes():
             return WbResponse.text_response('Error: Can Not Record Into Custom Collection "{0}"'.format(coll))
 
         return self.serve_content(environ, coll, url, record=True)
 
+    @hooked()
     def serve_content(self, environ, coll='$root', url='', timemap_output='', record=False):
         if not self.is_valid_coll(coll):
             self.raise_not_found(environ, 'No handler for "/{0}"'.format(coll))
 
         self.setup_paths(environ, coll, record)
 
-        request_uri = environ.get('REQUEST_URI')
-        script_name = environ.get('SCRIPT_NAME', '') + '/'
-        if request_uri and request_uri.startswith(script_name):
-            wb_url_str = request_uri[len(script_name):]
+        wb_url_str = to_native_str(url)
 
-        else:
-            wb_url_str = to_native_str(url)
-
-            if environ.get('QUERY_STRING'):
-                wb_url_str += '?' + environ.get('QUERY_STRING')
+        if environ.get('QUERY_STRING'):
+            wb_url_str += '?' + environ.get('QUERY_STRING')
 
         metadata = self.get_metadata(coll)
         if record:
@@ -277,6 +279,7 @@ class FrontEndApp(object):
 
         try:
             response = self.rewriterapp.render_content(wb_url_str, metadata, environ)
+
         except UpstreamException as ue:
             response = self.rewriterapp.handle_error(environ, ue)
             raise HTTPException(response=response)
@@ -302,6 +305,7 @@ class FrontEndApp(object):
         # jinja2 template paths always use '/' as separator
         environ['pywb.templates_dir'] = '/'.join(paths)
 
+    @hooked()
     def serve_listing(self, environ):
         result = {'fixed': self.warcserver.list_fixed_routes(),
                   'dynamic': self.warcserver.list_dynamic_routes()
@@ -380,7 +384,6 @@ class FrontEndApp(object):
 
     def init_proxy(self, config):
         proxy_config = config.get('proxy')
-        self.proxy_prefix = None
         if not proxy_config:
             return
 
@@ -408,23 +411,11 @@ class FrontEndApp(object):
         else:
             logging.info('Proxy enabled for collection "{0}"'.format(proxy_coll))
 
-        if proxy_config.get('use_head_insert', True):
-            self.proxy_prefix = '/{0}/bn_/'.format(proxy_coll)
-        else:
-            self.proxy_prefix = '/{0}/id_/'.format(proxy_coll)
+        prefix = '/{0}/bn_/'.format(proxy_coll)
 
-        self.handler = WSGIProxMiddleware(self.handle_request,
-                                  self.proxy_route_request,
+        self.handler = WSGIProxMiddleware(self.handle_request, prefix,
                                   proxy_host=proxy_config.get('host', 'pywb.proxy'),
                                   proxy_options=proxy_config)
-
-    def proxy_route_request(self, url, environ):
-        """ Return the full url that this proxy request will be routed to
-        The 'environ' PATH_INFO and REQUEST_URI will be modified based on the returned url
-
-        Default is to use the 'proxy_prefix' to point to the proxy collection
-        """
-        return self.proxy_prefix + url
 
 
 # ============================================================================
@@ -466,5 +457,4 @@ class MetadataCache(object):
 if __name__ == "__main__":
     app_server = FrontEndApp.create_app(port=8080)
     app_server.join()
-
 
