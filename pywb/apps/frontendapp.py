@@ -30,8 +30,6 @@ import traceback
 import requests
 import logging
 
-from pywb.hooks import hooked
-
 
 # ============================================================================
 class FrontEndApp(object):
@@ -161,7 +159,6 @@ class FrontEndApp(object):
         logging.info(msg.format(indexer.root_path, auto_interval))
         indexer.start()
 
-    @hooked()
     def serve_home(self, environ):
         home_view = BaseInsertView(self.rewriterapp.jinja_env, 'index.html')
         fixed_routes = self.warcserver.list_fixed_routes()
@@ -177,7 +174,6 @@ class FrontEndApp(object):
 
         return WbResponse.text_response(content, content_type='text/html; charset="utf-8"')
 
-    @hooked()
     def serve_static(self, environ, coll='', filepath=''):
         if coll:
             path = os.path.join(self.warcserver.root_dir, coll, self.static_dir)
@@ -205,7 +201,6 @@ class FrontEndApp(object):
 
         return metadata
 
-    @hooked()
     def serve_coll_page(self, environ, coll='$root'):
         if not self.is_valid_coll(coll):
             self.raise_not_found(environ, 'No handler for "/{0}"'.format(coll))
@@ -227,7 +222,6 @@ class FrontEndApp(object):
 
         return WbResponse.text_response(content, content_type='text/html; charset="utf-8"')
 
-    @hooked()
     def serve_cdx(self, environ, coll='$root'):
         base_url = self.rewriterapp.paths['cdx-server']
 
@@ -251,14 +245,12 @@ class FrontEndApp(object):
         except Exception as e:
             return WbResponse.text_response('Error: ' + str(e), status='400 Bad Request')
 
-    @hooked()
     def serve_record(self, environ, coll='$root', url=''):
         if coll in self.warcserver.list_fixed_routes():
             return WbResponse.text_response('Error: Can Not Record Into Custom Collection "{0}"'.format(coll))
 
         return self.serve_content(environ, coll, url, record=True)
 
-    @hooked()
     def serve_content(self, environ, coll='$root', url='', timemap_output='', record=False):
         if not self.is_valid_coll(coll):
             self.raise_not_found(environ, 'No handler for "/{0}"'.format(coll))
@@ -311,7 +303,6 @@ class FrontEndApp(object):
         # jinja2 template paths always use '/' as separator
         environ['pywb.templates_dir'] = '/'.join(paths)
 
-    @hooked()
     def serve_listing(self, environ):
         result = {'fixed': self.warcserver.list_fixed_routes(),
                   'dynamic': self.warcserver.list_dynamic_routes()
