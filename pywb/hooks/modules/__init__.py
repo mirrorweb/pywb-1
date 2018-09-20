@@ -1,1 +1,1 @@
-from pywb.hooks.modules import demo_hook
+from pywb.hooks.modules import take_down_hook
