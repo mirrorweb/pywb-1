@@ -240,6 +240,10 @@ class RewriterApp(object):
             urlrewriter = IdentityUrlRewriter(wb_url, '')
             framed_replay = False
 
+        elif wb_url.type == WbUrl.CONTINUITY:
+            urlrewriter = IdentityUrlRewriter(wb_url, '')
+            framed_replay = False
+
         else:
             urlrewriter = UrlRewriter(wb_url,
                                       prefix=full_prefix,
@@ -496,14 +500,13 @@ class RewriterApp(object):
 
     def _do_req(self, inputreq, wb_url, kwargs, skip_record):
         req_data = inputreq.reconstruct_request(wb_url.url)
-
         headers = {'Content-Length': str(len(req_data)),
                    'Content-Type': 'application/request'}
 
         if skip_record:
             headers['Recorder-Skip'] = '1'
 
-        if wb_url.is_latest_replay():
+        if wb_url.is_latest_replay() or wb_url.is_continuity():
             closest = 'now'
         else:
             closest = wb_url.timestamp
@@ -529,8 +532,17 @@ class RewriterApp(object):
         params = {}
         params['url'] = wb_url.url
         params['output'] = kwargs.get('output', 'json')
-        params['from'] = wb_url.timestamp
+        params['from'] = wb_url.timestamp if wb_url.timestamp != '+' else ''
         params['to'] = wb_url.end_timestamp
+
+        if wb_url.is_latest_replay() or wb_url.is_continuity():
+            closest = 'now'
+
+        else:
+            closest = wb_url.timestamp
+
+        if closest:
+            params['closest'] = closest
 
         upstream_url = self.get_upstream_url(wb_url, kwargs, params)
         upstream_url = upstream_url.replace('/resource/postreq', '/index')
@@ -608,6 +620,7 @@ class RewriterApp(object):
 
     def unrewrite_referrer(self, environ, full_prefix):
         referrer = environ.get('HTTP_REFERER')
+
         if not referrer:
             return False
 
@@ -654,6 +667,9 @@ class RewriterApp(object):
 
         if wb_url.is_query():
             return self.handle_query(environ, wb_url, kwargs, full_prefix)
+
+        if wb_url.is_continuity():
+            return None
 
         if self.is_framed_replay(wb_url):
             extra_params = self.get_top_frame_params(wb_url, kwargs)

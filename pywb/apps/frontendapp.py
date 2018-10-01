@@ -25,6 +25,8 @@ from pywb.apps.static_handler import StaticHandler
 from pywb.apps.rewriterapp import RewriterApp, UpstreamException
 from pywb.apps.wbrequestresponse import WbResponse
 
+from pywb.rewrite.wburl import WbUrl
+
 import os
 import traceback
 import requests
@@ -35,6 +37,7 @@ import logging
 class FrontEndApp(object):
     REPLAY_API = 'http://localhost:%s/{coll}/resource/postreq'
     CDX_API = 'http://localhost:%s/{coll}/index'
+    CONTINUITY = 'http://localhost:%s/{coll}/resource/postreq'
     RECORD_SERVER = 'http://localhost:%s'
     RECORD_API = 'http://localhost:%s/%s/resource/postreq?param.recorder.coll={coll}'
 
@@ -102,11 +105,16 @@ class FrontEndApp(object):
 
         self.url_map.add(Rule(coll_prefix + '/<path:url>', endpoint=self.serve_content))
 
+        # Continuty mode rule, enable only if in continuity mode.
+        if self.warcserver.config.get('continuity', False):
+            self.url_map.add(Rule(coll_prefix + '/+/<path:url>', endpoint=self.serve_continuity))
+
     def get_upstream_paths(self, port):
         base_paths = {
-                'replay': self.REPLAY_API % port,
-                'cdx-server': self.CDX_API % port,
-               }
+            'replay': self.REPLAY_API % port,
+            'cdx-server': self.CDX_API % port,
+            'continuity': self.CONTINUITY % port,
+        }
 
         if self.recorder_path:
             base_paths['record'] = self.recorder_path
@@ -187,12 +195,14 @@ class FrontEndApp(object):
         except:
             self.raise_not_found(environ, 'Static File Not Found: {0}'.format(filepath))
 
-    def get_metadata(self, coll):
+    def get_metadata(self, coll, link_type='replay'):
         #if coll == self.all_coll:
         #    coll = '*'
 
-        metadata = {'coll': coll,
-                    'type': 'replay'}
+        metadata = {
+            'coll': coll,
+            'type': link_type,
+        }
 
         if coll in self.warcserver.list_fixed_routes():
             metadata.update(self.warcserver.get_coll_config(coll))
@@ -251,9 +261,17 @@ class FrontEndApp(object):
 
         return self.serve_content(environ, coll, url, record=True)
 
+    def serve_continuity(self, environ, url=None):
+        return self.serve_content({'continuity': '+', **environ}, url=url)
+
     def serve_content(self, environ, coll='$root', url='', timemap_output='', record=False):
         if not self.is_valid_coll(coll):
             self.raise_not_found(environ, 'No handler for "/{0}"'.format(coll))
+
+        wb_url = WbUrl(url)
+
+        if environ.get('continuity', '') == '+':
+            wb_url.type = WbUrl.CONTINUITY
 
         self.setup_paths(environ, coll, record)
 
@@ -269,6 +287,10 @@ class FrontEndApp(object):
                 wb_url_str += '?' + environ.get('QUERY_STRING')
 
         metadata = self.get_metadata(coll)
+
+        if wb_url.type == WbUrl.CONTINUITY:
+            metadata['type'] = WbUrl.CONTINUITY
+
         if record:
             metadata['type'] = 'record'
 
@@ -276,6 +298,9 @@ class FrontEndApp(object):
             metadata['output'] = timemap_output
 
         try:
+            if metadata.get('type', '') == WbUrl.CONTINUITY:
+                wb_url_str = '+/' + wb_url_str
+
             response = self.rewriterapp.render_content(wb_url_str, metadata, environ)
         except UpstreamException as ue:
             response = self.rewriterapp.handle_error(environ, ue)
