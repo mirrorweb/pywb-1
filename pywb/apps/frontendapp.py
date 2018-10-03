@@ -270,6 +270,8 @@ class FrontEndApp(object):
 
         wb_url = WbUrl(url)
 
+        # Force url into continuity mode because the url doesn't contain
+        # enough information at this point to figure it out
         if environ.get('continuity', '') == '+':
             wb_url.type = WbUrl.CONTINUITY
 
@@ -277,6 +279,7 @@ class FrontEndApp(object):
 
         request_uri = environ.get('REQUEST_URI')
         script_name = environ.get('SCRIPT_NAME', '') + '/'
+
         if request_uri and request_uri.startswith(script_name):
             wb_url_str = request_uri[len(script_name):]
 
