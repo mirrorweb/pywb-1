@@ -83,6 +83,10 @@ class RewriterApp(object):
                                                self._html_templ('head_insert_html'),
                                                self.banner_view)
 
+        self.head_framed_view = HeadInsertView(self.jinja_env,
+                                               self._html_templ('framed_insert_html'),
+                                               self.banner_view)
+
         self.frame_insert_view = TopFrameView(self.jinja_env,
                                                self._html_templ('frame_insert_html'),
                                                self.banner_view)
@@ -240,9 +244,9 @@ class RewriterApp(object):
             urlrewriter = IdentityUrlRewriter(wb_url, '')
             framed_replay = False
 
-        elif wb_url.type == WbUrl.CONTINUITY:
+        elif wb_url.is_continuity():
             urlrewriter = IdentityUrlRewriter(wb_url, '')
-            framed_replay = False
+            framed_replay = True
 
         else:
             urlrewriter = UrlRewriter(wb_url,
@@ -359,6 +363,19 @@ class RewriterApp(object):
         if is_ajax:
             head_insert_func = None
             urlrewriter.rewrite_opts['is_ajax'] = True
+
+        elif wb_url.is_continuity():
+            top_url = self.get_top_url(full_prefix, wb_url, cdx, kwargs)
+
+            d1 = (wb_url, full_prefix, host_prefix, top_url, environ, framed_replay)
+            d2 = {'replay_mod': self.replay_mod, 'config': self.config}
+
+            if framed_replay:
+                head_insert_func = self.head_framed_view.create_insert_func(*d1, **d2)
+
+            else:
+                head_insert_func = self.head_insert_view.create_insert_func(*d1, **d2)
+
         else:
             top_url = self.get_top_url(full_prefix, wb_url, cdx, kwargs)
             head_insert_func = (self.head_insert_view.
