@@ -105,6 +105,7 @@ class FrontEndApp(object):
             self.url_map.add(Rule(coll_prefix + self.RECORD_ROUTE + '/<path:url>', endpoint=self.serve_record))
 
         self.url_map.add(Rule(coll_prefix + '/<path:url>', endpoint=self.serve_content))
+        self.url_map.add(Rule(coll_prefix + '/nobanner/<path:url>', endpoint=self.serve_content_nobanner))
 
         # Continuty mode rule, enable only if in continuity mode.
         if self.warcserver.config.get('continuity', False):
