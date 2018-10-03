@@ -99,6 +99,7 @@ class FrontEndApp(object):
         self.url_map.add(Rule(coll_prefix + self.cdx_api_endpoint, endpoint=self.serve_cdx))
         self.url_map.add(Rule(coll_prefix + '/', endpoint=self.serve_coll_page))
         self.url_map.add(Rule(coll_prefix + '/timemap/<timemap_output>/<path:url>', endpoint=self.serve_content))
+        self.url_map.add(Rule(coll_prefix + '/nobanner/<timemap_output>/<path:url>', endpoint=self.serve_content_nobanner))
 
         if self.recorder_path:
             self.url_map.add(Rule(coll_prefix + self.RECORD_ROUTE + '/<path:url>', endpoint=self.serve_record))
@@ -263,6 +264,9 @@ class FrontEndApp(object):
 
     def serve_continuity(self, environ, url=None):
         return self.serve_content({'continuity': '+', **environ}, url=url)
+
+    def serve_content_nobanner(self, environ, coll='$root', url='', timemap_output='', record=False):
+        return self.serve_content({'nobanner': 'true', **environ}, coll=coll, url=url, record=record)
 
     def serve_content(self, environ, coll='$root', url='', timemap_output='', record=False):
         if not self.is_valid_coll(coll):

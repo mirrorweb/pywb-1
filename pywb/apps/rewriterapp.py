@@ -78,18 +78,31 @@ class RewriterApp(object):
         self.redirect_to_exact = config.get('redirect_to_exact')
 
         self.banner_view = BaseInsertView(self.jinja_env, self._html_templ('banner_html'))
+        self.bannerless_view = BaseInsertView(self.jinja_env, self._html_templ('blank_banner_html'))
 
         self.head_insert_view = HeadInsertView(self.jinja_env,
                                                self._html_templ('head_insert_html'),
                                                self.banner_view)
 
+        self.head_insert_bannerless_view = HeadInsertView(self.jinja_env,
+                                               self._html_templ('head_insert_html'),
+                                               self.bannerless_view)
+
         self.head_framed_view = HeadInsertView(self.jinja_env,
                                                self._html_templ('framed_insert_html'),
                                                self.banner_view)
 
+        self.head_framed_bannerless_view = HeadInsertView(self.jinja_env,
+                                               self._html_templ('framed_insert_html'),
+                                               self.bannerless_view)
+
         self.frame_insert_view = TopFrameView(self.jinja_env,
                                                self._html_templ('frame_insert_html'),
                                                self.banner_view)
+
+        self.frame_insert_bannerless_view = TopFrameView(self.jinja_env,
+                                               self._html_templ('frame_insert_html'),
+                                               self.bannerless_view)
 
         self.error_view = BaseInsertView(self.jinja_env, self._html_templ('error_html'))
         self.not_found_view = BaseInsertView(self.jinja_env, self._html_templ('not_found_html'))
@@ -231,6 +244,7 @@ class RewriterApp(object):
         full_prefix = host_prefix + rel_prefix
 
         is_proxy = ('wsgiprox.proxy_host' in environ)
+        no_banner_mode = 'nobanner' in environ
 
         response = self.handle_custom_response(environ, wb_url,
                                                full_prefix, host_prefix,
@@ -688,15 +702,27 @@ class RewriterApp(object):
         if wb_url.is_continuity():
             return None
 
-        if self.is_framed_replay(wb_url):
-            extra_params = self.get_top_frame_params(wb_url, kwargs)
-            return self.frame_insert_view.get_top_frame(wb_url,
-                                                        full_prefix,
-                                                        host_prefix,
-                                                        environ,
-                                                        self.frame_mod,
-                                                        self.replay_mod,
-                                                        coll='',
-                                                        extra_params=extra_params)
+        if self.is_framed_replay(wb_url) and 'nobanner' in environ:
+            return self.frame_insert_bannerless_view.get_top_frame(
+                wb_url,
+                full_prefix,
+                host_prefix,
+                environ,
+                self.frame_mod,
+                self.replay_mod,
+                coll='',
+                extra_params=self.get_top_frame_params(wb_url, kwargs)
+            )
 
-        return None
+        if self.is_framed_replay(wb_url):
+            return self.frame_insert_view.get_top_frame(
+                wb_url,
+                full_prefix,
+                host_prefix,
+                environ,
+                self.frame_mod,
+                self.replay_mod,
+                coll='',
+                extra_params=self.get_top_frame_params(wb_url, kwargs)
+            )
+
