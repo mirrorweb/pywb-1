@@ -13,7 +13,8 @@ class TestRootColl(BaseConfigTest):
         # Body
         assert '"20140127171238"' in resp.text
         assert 'wombat.js' in resp.text
-        assert 'new _WBWombat' in resp.text, resp.text
+        assert 'WBWombatInit' in resp.text, resp.text
+        assert 'wbinfo.enable_auto_fetch = true;' in resp.text, resp.text
         assert '/20140127171238{0}/http://www.iana.org/time-zones"'.format(fmod) in resp.text
 
     def test_root_replay_no_ts(self, fmod):
@@ -23,7 +24,8 @@ class TestRootColl(BaseConfigTest):
         # Body
         assert 'request_ts = ""' in resp.text
         assert 'wombat.js' in resp.text
-        assert 'new _WBWombat' in resp.text, resp.text
+        assert 'WBWombatInit' in resp.text, resp.text
+        assert 'wbinfo.enable_auto_fetch = true;' in resp.text, resp.text
         assert '/{0}http://www.iana.org/time-zones"'.format(fmod_slash) in resp.text
 
     def test_root_replay_redir(self, fmod):

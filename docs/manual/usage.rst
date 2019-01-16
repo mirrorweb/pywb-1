@@ -120,8 +120,8 @@ The core recording functionality in Webrecorder is also part of :mod:`pywb`. If 
 done by directly recording into your pywb collection:
 
 1. Create a collection: ``wb-manager init my-web-archive`` (if you haven't already created a web archive collection)
-3. Run: ``wayback --record --live -a --auto-interval 10``
-4. Point your browser to ``http://localhost:8080/my-web-archive/record/<url>``
+2. Run: ``wayback --record --live -a --auto-interval 10``
+3. Point your browser to ``http://localhost:8080/my-web-archive/record/<url>``
 
 For example, to record ``http://example.com/``, visit ``http://localhost:8080/my-web-archive/record/<url>``
 
@@ -189,3 +189,29 @@ See the `Nginx Docs <https://nginx.org/en/docs/>`_ for a lot more details on how
         }
     }
 
+Sample Apache Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following Apache configuration snippet can be used to deploy pywb *without* uwsgi. A configuration with uwsgi is also probably possible but this covers the simplest case of launching the `wayback` binary directly.
+
+The configuration assumes pywb is running on port 8080 on localhost, but it could be on a different machine as well.
+
+.. code:: apache
+
+    <VirtualHost *:80>
+         ServerName proxy.example.com
+         Redirect / https://proxy.example.com/
+         DocumentRoot /var/www/html/
+    </VirtualHost>
+
+    <VirtualHost *:443>
+         ServerName proxy.example.com
+         SSLEngine on
+         DocumentRoot /var/www/html/
+         ErrorDocument 404 /404.html
+         ProxyPreserveHost On
+         ProxyPass /.well-known/ !
+         ProxyPass / http://localhost:8080/
+         ProxyPassReverse / http://localhost:8080/
+         RequestHeader set "X-Forwarded-Proto" expr=%{REQUEST_SCHEME}
+    </VirtualHost>

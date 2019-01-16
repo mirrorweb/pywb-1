@@ -334,6 +334,7 @@ The full set of configurable options (with their default settings) is as follows
      rollover_size: 100000000
      rollover_idle_secs: 600
      filename_template: my-warc-{timestamp}-{hostname}-{random}.warc.gz
+     source_filter: live
 
 
 The required ``source_coll`` setting specifies the source collection from which to load content that will be recorded.
@@ -349,6 +350,9 @@ subsequent requests. This allows the WARC size to be more manageable and prevent
 The ``filename-template`` specifies the naming convention for WARC files, and allows a timestamp, current hostname, and
 random string to be inserted into the filename.
 
+When using an aggregate collection or sequential fallback collection as the source, recording can be limited to pages
+fetched from certain child collection by specifying ``source_filter`` as an regex matching the name of the sub-collection.
+
 For example, if recording with the above config into a collection called ``my-coll``, the user would access:
 
 ``http://my-archive.example.com/my-coll/record/http://example.com/``, which would load ``http://example.com/`` from the live web
@@ -359,6 +363,24 @@ and write the request and response to a WARC named something like:
 If running with auto indexing, the WARC will also get automatically indexed and available for replay after the index interval.
 
 As a shortcut, ``recorder: live`` can also be used to specify only the ``source_coll`` option.
+
+
+.. _auto-fetch:
+
+Auto-Fetch Responsive Recording
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When recording (or browsing the 'live' collection), pywb has an option to inspect and automatically fetch additional resources, including:
+
+ * Any urls found in ``<img srcset="...">`` attributes.
+
+ * Any urls within CSS ``@media`` rules.
+
+This allows pywb to better capture responsive pages, where all the resources are not directly loaded by the browser, but may be needed for future replay.
+
+The detected urls are loaded in the background using a web worker while the user is browsing the page.
+
+To enable this functionality, add ``--enable-auto-fetch`` to the command-line or ``enable_auto_fetch: true`` to the root of the ``config.yaml``
 
 
 Auto-Indexing Mode
@@ -411,19 +433,50 @@ To enable proxy mode, the collection can be specified by running: ``wayback --pr
 For HTTP proxy access, this is all that is needed to use the proxy. If pywb is running on port 8080 on localhost, the following curl command should provide proxy access: ``curl -x "localhost:8080"  http://example.com/``
 
 
-Disabling Proxy Banner
-^^^^^^^^^^^^^^^^^^^^^^
+Proxy Mode Rewriting
+^^^^^^^^^^^^^^^^^^^^
 
-By default, pywb inserts a default banner into the proxy mode replay to make it clear to users that they are viewing replayed content.
+By default, pywb performs minimal html rewriting to insert a default banner into the proxy mode replay to make it clear to users that they are viewing replayed content.
 
-The default banner can be disabled by adding ``use_banner: false`` to the proxy config (this option is checked in the ``banner.html`` template).
-However, pywb may still insert additional rewriting code into the head to improve replay (using the ``head_insert.html`` template).
-To disable all modifications to the page in proxy mode, add ``use_head_insert: false`` to the config.
-Both options default to true, eg::
+Custom rewriting code from the ``head_insert.html`` template may also be inserted into ``<head>``.
+
+Checking for the ``{% if env.pywb_proxy_magic %}`` allows for inserting custom content for proxy mode only.
+
+However, content rewriting in proxy mode is not necessary and can be disabled completely by customizing the ``proxy`` block in the config.
+
+This may be essential when proxying content to older browsers for instance.
+
+ * To disable all content rewriting/modifications from pywb via the ``head_insert.html`` template, add ``enable_content_rewrite: false``
+
+   If set to false, this setting overrides and disables all the other options.
+
+ * To disable just the banner, add ``enable_banner: false``
+
+ * To add a light version of rewriting (for overriding Date, random number generators), add ``enable_wombat: true``
+
+
+If :ref:`auto-fetch` is enabled in the global config, the ``enable_wombat: true`` is implied, unless ``enable_content_rewrite: false``
+is also set (as it will disable the auto-fetch system from being injected into the page).
+
+
+If omitted, the defaults for these options are::
 
    proxy:
-     use_banner: true
-     use_head_insert: true
+     enable_banner: true
+     enable_wombat: false
+     enable_content_rewrite: true
+
+
+For example, to enable wombat rewriting but disable the banner, use the config::
+
+   proxy:
+     enable_banner: false
+     enable_wombat: true
+
+To disable all content rewriting::
+
+   proxy:
+     enable_content_rewrite: false
 
 
 Proxy Recording
@@ -475,13 +528,13 @@ The following are all the available proxy options -- only ``coll`` is required::
     ca_name: pywb HTTPS Proxy CA
     ca_file_cache: ./proxy-certs/pywb-ca.pem
     recording: false
-    use_banner: true
-    use_head_insert: true
+    enable_banner: true
+    enable_content_rewrite: true
 
 The HTTP/S functionality is provided by the separate :mod:`wsgiprox` utility which provides HTTP/S proxy routing
 to any WSGI application.
 
-Using `wsgiprox <https://github.com/webrecorder/wsgiprox>`_, pywb sets ``FrontEndApp.proxy_route_request()`` as the proxy resolver, and this function returns the full collection path that pywb uses to route each proxy request. The default implementation returns a path to the fixed collection ``coll`` and injects content into ``<head>`` if ``use_head_insert`` is true. The default banner is inserted if ``use_banner`` is set to true.
+Using `wsgiprox <https://github.com/webrecorder/wsgiprox>`_, pywb sets ``FrontEndApp.proxy_route_request()`` as the proxy resolver, and this function returns the full collection path that pywb uses to route each proxy request. The default implementation returns a path to the fixed collection ``coll`` and injects content into ``<head>`` if ``enable_content_rewrite`` is true. The default banner is inserted if ``enable_banner`` is set to true.
 
 Extensions to pywb can override ``proxy_route_request()`` to provide custom handling, such as setting the collection dynamically or based on external data sources.
 
