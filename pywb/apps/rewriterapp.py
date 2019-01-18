@@ -40,11 +40,6 @@ class UpstreamException(WbException):
 
 
 # ============================================================================
-#class Rewriter(RewriteDASHMixin, RewriteAMFMixin, RewriteContent):
-#    pass
-
-
-# ============================================================================
 class RewriterApp(object):
     VIDEO_INFO_CONTENT_TYPE = 'application/vnd.youtube-dl_formats+json'
 

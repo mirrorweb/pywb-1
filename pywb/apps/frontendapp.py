@@ -10,9 +10,6 @@ from warcio.statusandheaders import StatusAndHeaders
 from warcio.utils import to_native_str
 from wsgiprox.wsgiprox import WSGIProxMiddleware
 
-from pywb.recorder.multifilewarcwriter import MultiFileWARCWriter
-from pywb.recorder.recorderapp import RecorderApp
-
 from pywb.utils.loaders import load_yaml_config
 from pywb.utils.geventserver import GeventServer
 from pywb.utils.io import StreamIter
@@ -73,8 +70,6 @@ class FrontEndApp(object):
         self.proxy_coll = None  # the name of the collection that has proxy mode enabled
         self.init_proxy(config)
 
-        self.init_recorder(config.get('recorder'))
-
         self.init_autoindex(config.get('autoindex'))
 
         static_path = config.get('static_url_path', 'pywb/static/').replace('/', os.path.sep)
@@ -115,9 +110,6 @@ class FrontEndApp(object):
         self.url_map.add(Rule(coll_prefix + '/', endpoint=self.serve_coll_page))
         self.url_map.add(Rule(coll_prefix + '/timemap/<timemap_output>/<path:url>', endpoint=self.serve_content))
 
-        if self.recorder_path:
-            self.url_map.add(Rule(coll_prefix + self.RECORD_ROUTE + '/<path:url>', endpoint=self.serve_record))
-
         if self.proxy_prefix is not None:
             # Add the proxy-fetch endpoint to enable PreservationWorker to make CORS fetches worry free in proxy mode
             self.url_map.add(Rule('/proxy-fetch/<path:url>', endpoint=self.proxy_fetch,
@@ -136,39 +128,7 @@ class FrontEndApp(object):
                 'cdx-server': self.CDX_API % port,
                }
 
-        if self.recorder_path:
-            base_paths['record'] = self.recorder_path
-
         return base_paths
-
-    def init_recorder(self, recorder_config):
-        """Initialize the recording functionality of pywb. If recording_config is None this function is a no op"""
-        if not recorder_config:
-            self.recorder = None
-            self.recorder_path = None
-            return
-
-        if isinstance(recorder_config, str):
-            recorder_coll = recorder_config
-            recorder_config = {}
-        else:
-            recorder_coll = recorder_config['source_coll']
-
-        # TODO: support dedup
-        dedup_index = None
-        warc_writer = MultiFileWARCWriter(self.warcserver.archive_paths,
-                                          max_size=int(recorder_config.get('rollover_size', 1000000000)),
-                                          max_idle_secs=int(recorder_config.get('rollover_idle_secs', 600)),
-                                          filename_template=recorder_config.get('filename_template'),
-                                          dedup_index=dedup_index)
-
-        self.recorder = RecorderApp(self.RECORD_SERVER % str(self.warcserver_server.port), warc_writer,
-                                    accept_colls=recorder_config.get('source_filter'))
-
-
-        recorder_server = GeventServer(self.recorder, port=0)
-
-        self.recorder_path = self.RECORD_API % (recorder_server.port, recorder_coll)
 
     def init_autoindex(self, auto_interval):
         """Initialize and start the auto-indexing of the collections. If auto_interval is None this is a no op.
