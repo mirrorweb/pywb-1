@@ -120,6 +120,7 @@ class RewriterApp(object):
         else:
             self.csp_header = None
 
+        # deprecated: Use X-Forwarded-Proto header instead!
         self.force_scheme = config.get('force_scheme')
 
     def add_csp_header(self, wb_url, status_headers):
@@ -192,6 +193,12 @@ class RewriterApp(object):
 
         content_length = (record.http_headers.
                           get_header('Content-Length'))
+
+        if content_length is None:
+            return
+
+        content_length = content_length.split(',')[0]
+
         try:
             content_length = int(content_length)
             if not range_end:
@@ -234,8 +241,10 @@ class RewriterApp(object):
         wb_url = wb_url.replace('#', '%23')
         wb_url = WbUrl(wb_url)
 
-        if self.force_scheme:
-            environ['wsgi.url_scheme'] = self.force_scheme
+        proto = environ.get('HTTP_X_FORWARDED_PROTO', self.force_scheme)
+
+        if proto:
+            environ['wsgi.url_scheme'] = proto
 
         is_timegate = self._check_accept_dt(wb_url, environ)
 
@@ -277,6 +286,8 @@ class RewriterApp(object):
         self.unrewrite_referrer(environ, full_prefix)
 
         urlkey = canonicalize(wb_url.url)
+
+        environ['pywb.host_prefix'] = host_prefix
 
         if self.use_js_obj_proxy:
             content_rw = self.js_proxy_rw
@@ -399,6 +410,7 @@ class RewriterApp(object):
                                                        top_url,
                                                        environ,
                                                        framed_replay,
+                                                       coll=kwargs.get('coll', ''),
                                                        replay_mod=self.replay_mod,
                                                        config=self.config))
 
@@ -409,7 +421,7 @@ class RewriterApp(object):
 
         urlrewriter.rewrite_opts['ua_string'] = environ.get('HTTP_USER_AGENT')
 
-        result = content_rw(record, urlrewriter, cookie_rewriter, head_insert_func, cdx)
+        result = content_rw(record, urlrewriter, cookie_rewriter, head_insert_func, cdx, environ)
 
         status_headers, gen, is_rw = result
 

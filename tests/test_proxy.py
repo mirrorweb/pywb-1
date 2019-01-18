@@ -20,7 +20,7 @@ def scheme(request):
 class BaseTestProxy(TempDirTests, BaseTestClass):
     @classmethod
     def setup_class(cls, coll='pywb', config_file='config_test.yaml', recording=False,
-                    extra_opts={}):
+                    proxy_opts={}, config_opts={}):
 
         super(BaseTestProxy, cls).setup_class()
         config_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), config_file)
@@ -33,10 +33,13 @@ class BaseTestProxy(TempDirTests, BaseTestClass):
                 'recording': recording,
                }
 
-        opts.update(extra_opts)
+        opts.update(proxy_opts)
+
+        custom_config = config_opts
+        custom_config['proxy'] = opts
 
         cls.app = FrontEndApp(config_file=config_file,
-                              custom_config={'proxy': opts})
+                              custom_config=custom_config)
 
         cls.server = GeventServer(cls.app, handler_class=RequestURIWSGIHandler)
         cls.proxies = cls.proxy_dict(cls.server.port)
@@ -66,11 +69,15 @@ class TestProxy(BaseTestProxy):
         # wb insert
         assert 'WB Insert' in res.text
 
-        # no wombat.js
+        # no wombat.js and wombatProxyMode.js
         assert 'wombat.js' not in res.text
+        assert 'wombatProxyMode.js' not in res.text
 
         # no redirect check
         assert 'window == window.top' not in res.text
+
+        # no auto fetch
+        assert 'wbinfo.enable_auto_fetch = false;' in res.text
 
         assert res.headers['Link'] == '<http://example.com>; rel="memento"; datetime="Mon, 27 Jan 2014 17:12:51 GMT"; collection="pywb"'
         assert res.headers['Memento-Datetime'] == 'Mon, 27 Jan 2014 17:12:51 GMT'
@@ -85,8 +92,12 @@ class TestProxy(BaseTestProxy):
         assert 'WB Insert' in res.text
         assert 'Example Domain' in res.text
 
-        # no wombat.js
+        # no wombat.js and wombatProxyMode.js
         assert 'wombat.js' not in res.text
+        assert 'wombatProxyMode.js' not in res.text
+
+        # no auto fetch
+        assert 'wbinfo.enable_auto_fetch = false;' in res.text
 
         # banner
         assert 'default_banner.js' in res.text
@@ -151,7 +162,7 @@ class TestRecordingProxy(HttpBinLiveTests, CollsDirMixin, BaseTestProxy):
 class TestProxyNoBanner(BaseTestProxy):
     @classmethod
     def setup_class(cls):
-        super(TestProxyNoBanner, cls).setup_class(extra_opts={'use_banner': False})
+        super(TestProxyNoBanner, cls).setup_class(proxy_opts={'enable_banner': False})
 
     def test_proxy_replay(self, scheme):
         res = requests.get('{0}://example.com/'.format(scheme),
@@ -167,8 +178,12 @@ class TestProxyNoBanner(BaseTestProxy):
         # no banner
         assert 'default_banner.js' not in res.text
 
-        # no wombat.js
+        # no wombat.js and wombatProxyMode.js
         assert 'wombat.js' not in res.text
+        assert 'wombatProxyMode.js' not in res.text
+
+        # no auto fetch
+        assert 'wbinfo.enable_auto_fetch = false;' in res.text
 
         # no redirect check
         assert 'window == window.top' not in res.text
@@ -181,7 +196,7 @@ class TestProxyNoBanner(BaseTestProxy):
 class TestProxyNoHeadInsert(BaseTestProxy):
     @classmethod
     def setup_class(cls):
-        super(TestProxyNoHeadInsert, cls).setup_class(extra_opts={'use_head_insert': False})
+        super(TestProxyNoHeadInsert, cls).setup_class(proxy_opts={'enable_content_rewrite': False})
 
     def test_proxy_replay(self, scheme):
         res = requests.get('{0}://example.com/'.format(scheme),
@@ -197,8 +212,9 @@ class TestProxyNoHeadInsert(BaseTestProxy):
         # no banner
         assert 'default_banner.js' not in res.text
 
-        # no wombat.js
+        # no wombat.js and wombatProxyMode.js
         assert 'wombat.js' not in res.text
+        assert 'wombatProxyMode.js' not in res.text
 
         # no redirect check
         assert 'window == window.top' not in res.text
@@ -207,3 +223,137 @@ class TestProxyNoHeadInsert(BaseTestProxy):
         assert res.headers['Memento-Datetime'] == 'Mon, 27 Jan 2014 17:12:51 GMT'
 
 
+# ============================================================================
+class TestProxyIncludeBothWombatAutoFetchWorker(BaseTestProxy):
+    @classmethod
+    def setup_class(cls):
+        super(TestProxyIncludeBothWombatAutoFetchWorker, cls).setup_class(
+            proxy_opts={'enable_wombat': True}, config_opts={'enable_auto_fetch': True}
+        )
+
+    def test_include_both_wombat_auto_fetch_worker(self, scheme):
+        res = requests.get('{0}://example.com/'.format(scheme),
+                           proxies=self.proxies,
+                           verify=self.root_ca_file)
+
+        # content
+        assert 'Example Domain' in res.text
+
+        # yes head insert
+        assert 'WB Insert' in res.text
+
+        # no wombat.js, yes wombatProxyMode.js
+        assert 'wombat.js' not in res.text
+        assert 'wombatProxyMode.js' in res.text
+        assert 'wbinfo.enable_auto_fetch = true;' in res.text
+
+
+# ============================================================================
+class TestProxyIncludeWombatNotAutoFetchWorker(BaseTestProxy):
+    @classmethod
+    def setup_class(cls):
+        super(TestProxyIncludeWombatNotAutoFetchWorker, cls).setup_class(
+            proxy_opts={'enable_wombat': True}, config_opts={'enable_auto_fetch': False}
+        )
+
+    def test_include_wombat_not_auto_fetch_worker(self, scheme):
+        res = requests.get('{0}://example.com/'.format(scheme),
+                           proxies=self.proxies,
+                           verify=self.root_ca_file)
+
+        # content
+        assert 'Example Domain' in res.text
+
+        # yes head insert
+        assert 'WB Insert' in res.text
+
+        # no wombat.js, yes wombatProxyMode.js
+        assert 'wombat.js' not in res.text
+        assert 'wombatProxyMode.js' in res.text
+        assert 'wbinfo.enable_auto_fetch = false;' in res.text
+
+
+# ============================================================================
+class TestProxyIncludeAutoFetchWorkerNotWombat(BaseTestProxy):
+    @classmethod
+    def setup_class(cls):
+        super(TestProxyIncludeAutoFetchWorkerNotWombat, cls).setup_class(
+            proxy_opts={'enable_wombat': False}, config_opts={'enable_auto_fetch': True}
+        )
+
+    def test_include_auto_fetch_worker_not_wombat(self, scheme):
+        res = requests.get('{0}://example.com/'.format(scheme),
+                           proxies=self.proxies,
+                           verify=self.root_ca_file)
+
+        # content
+        assert 'Example Domain' in res.text
+
+        # yes head insert
+        assert 'WB Insert' in res.text
+
+        assert 'wombat.js' not in res.text
+
+        # auto fetch worker requires wombatProxyMode.js
+        assert 'wombatProxyMode.js' in res.text
+        assert 'wbinfo.enable_auto_fetch = true;' in res.text
+
+
+# ============================================================================
+class TestProxyAutoFetchWorkerEndPoints(BaseTestProxy):
+    @classmethod
+    def setup_class(cls):
+        super(TestProxyAutoFetchWorkerEndPoints, cls).setup_class(
+            proxy_opts={'enable_wombat': True}, config_opts={'enable_auto_fetch': True}
+        )
+
+    def test_proxy_fetch_options_request(self, scheme):
+        expected_origin = '{0}://example.com'.format(scheme)
+        res = requests.options('{0}://pywb.proxy/proxy-fetch/{1}'.format(scheme, expected_origin),
+                               headers=dict(Origin=expected_origin),
+                               proxies=self.proxies, verify=self.root_ca_file)
+
+        assert res.ok
+        assert res.headers.get('Access-Control-Allow-Origin') == expected_origin
+
+    def test_proxy_fetch(self, scheme):
+        expected_origin = '{0}://example.com'.format(scheme)
+        res = requests.get('{0}://pywb.proxy/proxy-fetch/{1}'.format(scheme, expected_origin),
+                           headers=dict(Origin='{0}://example.com'.format(scheme)),
+                           proxies=self.proxies, verify=self.root_ca_file)
+        assert res.ok
+        assert 'Example Domain' in res.text
+
+        res = requests.get('{0}://pywb.proxy/proxy-fetch/{1}'.format(scheme, expected_origin),
+                           proxies=self.proxies, verify=self.root_ca_file)
+
+        assert res.ok
+        assert 'Example Domain' in res.text
+
+    def test_proxy_worker_options_request(self, scheme):
+        expected_origin = '{0}://example.com'.format(scheme)
+        res = requests.options('{0}://pywb.proxy/static/autoFetchWorkerProxyMode.js'.format(scheme),
+                               headers=dict(Origin=expected_origin),
+                               proxies=self.proxies, verify=self.root_ca_file)
+
+        assert res.ok
+        assert res.headers.get('Access-Control-Allow-Origin') == expected_origin
+
+    def test_proxy_worker_fetch(self, scheme):
+        origin = '{0}://example.com'.format(scheme)
+        url = '{0}://pywb.proxy/static/autoFetchWorkerProxyMode.js'.format(scheme)
+        res = requests.get(url,
+                           headers=dict(Origin=origin),
+                           proxies=self.proxies, verify=self.root_ca_file)
+
+        assert res.ok
+        assert res.headers.get('Content-Type') == 'application/javascript'
+        assert res.headers.get('Access-Control-Allow-Origin') == origin
+        assert 'AutoFetcher.prototype.safeResolve' in res.text
+
+        res = requests.get(url, proxies=self.proxies, verify=self.root_ca_file)
+
+        assert res.ok
+        assert res.headers.get('Content-Type') == 'application/javascript'
+        assert res.headers.get('Access-Control-Allow-Origin') == '*'
+        assert 'AutoFetcher.prototype.safeResolve' in res.text

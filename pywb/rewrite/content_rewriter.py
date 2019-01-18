@@ -9,6 +9,7 @@ import re
 import webencodings
 import tempfile
 import json
+import codecs
 
 from pywb.utils.io import StreamIter, BUFF_SIZE
 
@@ -130,31 +131,31 @@ class BaseContentRewriter(object):
                       head_insert=head_insert_str,
                       url=cdx['url'],
                       defmod=self.replay_mod,
-                      parse_comments=rule.get('parse_comments', False))
+                      parse_comments=rule.get('parse_comments', False),
+                      charset=rwinfo.charset)
 
         return rw
 
     def get_head_insert(self, rwinfo, rule, head_insert_func, cdx):
         head_insert_str = ''
-        charset = rwinfo.charset
 
         # if no charset set, attempt to extract from first 1024
-        if not charset:
+        if not rwinfo.charset:
             first_buff = rwinfo.read_and_keep(1024)
-            charset = self.extract_html_charset(first_buff)
+            rwinfo.charset = self.extract_html_charset(first_buff)
 
         if head_insert_func:
             head_insert_orig = head_insert_func(rule, cdx)
 
-            if charset:
+            if rwinfo.charset:
                 try:
-                    head_insert_str = webencodings.encode(head_insert_orig, charset)
+                    head_insert_str = webencodings.encode(head_insert_orig, rwinfo.charset)
                 except:
                     pass
 
+            # no charset detected, encode banner as ascii html entities
             if not head_insert_str:
-                charset = 'utf-8'
-                head_insert_str = head_insert_orig.encode(charset)
+                head_insert_str = head_insert_orig.encode('ascii', 'xmlcharrefreplace')
 
             head_insert_str = head_insert_str.decode('iso-8859-1')
 
@@ -175,8 +176,9 @@ class BaseContentRewriter(object):
 
     def __call__(self, record, url_rewriter, cookie_rewriter,
                  head_insert_func=None,
-                 cdx=None):
+                 cdx=None, environ=None):
 
+        environ = environ or {}
         rwinfo = RewriteInfo(record, self, url_rewriter, cookie_rewriter)
         content_rewriter = None
 
@@ -191,6 +193,16 @@ class BaseContentRewriter(object):
             content_rewriter = self.create_rewriter(rwinfo.text_type, rule, rwinfo, cdx, head_insert_func)
 
         gen = None
+
+        # check if decoding is needed
+        if not rwinfo.is_content_rw:
+            content_encoding = rwinfo.record.http_headers.get_header('Content-Encoding')
+            accept_encoding = environ.get('HTTP_ACCEPT_ENCODING', '')
+
+            # if content-encoding is set but encoding is not in accept encoding,
+            # enable content_rw force decompression
+            if content_encoding and content_encoding not in accept_encoding:
+                rwinfo.is_content_rw = True
 
         if content_rewriter:
             gen = content_rewriter(rwinfo)
@@ -266,7 +278,7 @@ class StreamingRewriter(object):
         self.first_buff = first_buff
 
     def __call__(self, rwinfo):
-        return self.rewrite_text_stream_to_gen(rwinfo.content_stream)
+        return self.rewrite_text_stream_to_gen(rwinfo.content_stream, rwinfo)
 
     def rewrite(self, string):
         return string
@@ -277,7 +289,7 @@ class StreamingRewriter(object):
     def final_read(self):
         return ''
 
-    def rewrite_text_stream_to_gen(self, stream):
+    def rewrite_text_stream_to_gen(self, stream, rwinfo):
         """
         Convert stream to generator using applying rewriting func
         to each portion of the stream.
@@ -286,8 +298,18 @@ class StreamingRewriter(object):
         try:
             buff = self.first_buff
 
+            # for html rewriting:
+            # if charset is utf-8, use that, otherwise default to encode to ascii-compatible encoding
+            # encoding only used for url rewriting, encoding back to bytes after rewriting
+            if rwinfo.charset == 'utf-8' and rwinfo.text_type == 'html':
+                charset = 'utf-8'
+            else:
+                charset = 'iso-8859-1'
+
             if buff:
-                yield buff.encode('iso-8859-1')
+                yield buff.encode(charset)
+
+            decoder = codecs.getincrementaldecoder(charset)()
 
             while True:
                 buff = stream.read(BUFF_SIZE)
@@ -297,13 +319,27 @@ class StreamingRewriter(object):
                 if self.align_to_line:
                     buff += stream.readline()
 
-                buff = self.rewrite(buff.decode('iso-8859-1'))
-                yield buff.encode('iso-8859-1')
+                try:
+                    buff = decoder.decode(buff)
+                except UnicodeDecodeError:
+                    if charset == 'utf-8':
+                        rwinfo.charset = 'iso-8859-1'
+                        charset = rwinfo.charset
+                        decoder = codecs.getincrementaldecoder(charset)()
+                        buff = decoder.decode(buff)
+
+                buff = self.rewrite(buff)
+
+                yield buff.encode(charset)
 
             # For adding a tail/handling final buffer
             buff = self.final_read()
+
+            # ensure decoder is marked as finished (final buffer already decoded)
+            decoder.decode(b'', final=True)
+
             if buff:
-                yield buff.encode('iso-8859-1')
+                yield buff.encode(charset)
 
         finally:
             stream.close()
@@ -312,6 +348,7 @@ class StreamingRewriter(object):
 # ============================================================================
 class RewriteInfo(object):
     TAG_REGEX = re.compile(b'^\s*\<')
+    JSON_REGEX = re.compile(b'^\s*[{[][{"]')  # if it starts with this then highly likely not HTML
 
     JSONP_CONTAINS = ['callback=jQuery',
                       'callback=jsonp',
@@ -363,6 +400,10 @@ class RewriteInfo(object):
                 text_type = 'json'
 
         if (text_type and orig_text_type != text_type) or text_type == 'html':
+            if url.endswith('.json'):
+                buff = self.read_and_keep(56)
+                if self.JSON_REGEX.match(buff) is not None:
+                    return 'json', charset
             # check if default content_type that needs to be set
             new_mime = content_rewriter.default_content_types.get(text_type)
 
@@ -381,7 +422,7 @@ class RewriteInfo(object):
     def _resolve_text_type(self, text_type):
         mod = self.url_rewriter.wburl.mod
 
-        if mod == 'sw_':
+        if mod == 'sw_' or mod == 'wkr_':
             return None
 
         if text_type == 'css' and mod == 'js_':
@@ -392,7 +433,7 @@ class RewriteInfo(object):
         # if html or no-content type, allow resolving on js, css,
         # or other templates
         if text_type == 'guess-text':
-            if not is_js_or_css and not mod in ('if_', 'mp_', ''):
+            if not is_js_or_css and mod not in ('if_', 'mp_', ''):
                 return None
 
         # if application/octet-stream binary, only resolve if in js/css content
@@ -449,7 +490,7 @@ class RewriteInfo(object):
         return True
 
     def is_url_rw(self):
-        if self.url_rewriter.wburl.mod in ('id_', 'bn_', 'sw_'):
+        if self.url_rewriter.wburl.mod in ('id_', 'bn_', 'sw_', 'wkr_'):
             return False
 
         return True
