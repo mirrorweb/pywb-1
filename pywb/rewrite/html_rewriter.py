@@ -63,7 +63,7 @@ class HTMLRewriterMixin(StreamingRewriter):
             'param':   {'value': 'oe_'},
             'q':       {'cite': defmod},
             'ref':     {'href': 'oe_'},
-            'script':  {'src': 'js_'},
+            'script':  {'src': 'js_', 'xlink:href': 'js_'},  # covers both HTML and SVG script tags
             'source':  {'src': 'oe_'},
             'video':   {'src': 'oe_',
                         'poster': 'im_'},
@@ -115,9 +115,11 @@ class HTMLRewriterMixin(StreamingRewriter):
                  css_rewriter_class=None,
                  url = '',
                  defmod='',
-                 parse_comments=False):
+                 parse_comments=False,
+                 charset='utf-8'):
 
         super(HTMLRewriterMixin, self).__init__(url_rewriter, False)
+        self.charset = charset
         self._wb_parse_context = None
 
         if js_rewriter:
@@ -229,8 +231,23 @@ class HTMLRewriterMixin(StreamingRewriter):
         if not value:
             return ''
 
+
+        orig_value = value
+
+        # if not utf-8, then stream was encoded as iso-8859-1, and need to reencode
+        # into correct charset
+        if self.charset != 'utf-8' and self.charset != 'iso-8859-1':
+            try:
+                value = value.encode('iso-8859-1').decode(self.charset)
+            except:
+                pass
+
         unesc_value = self.try_unescape(value)
         rewritten_value = self.url_rewriter.rewrite(unesc_value, mod, force_abs)
+
+        # if no rewriting has occured, ensure we return original, not reencoded value
+        if rewritten_value == value:
+            return orig_value
 
         if unesc_value != value and rewritten_value != unesc_value:
             rewritten_value = rewritten_value.replace(unesc_value, value)
@@ -293,7 +310,22 @@ class HTMLRewriterMixin(StreamingRewriter):
 
         return None
 
-    def _rewrite_tag_attrs(self, tag, tag_attrs):
+    def _rewrite_tag_attrs(self, tag, tag_attrs, set_parsing_context=True):
+        """Rewrite a tags attributes.
+
+        If set_parsing_context is false then the parsing context will not set.
+        If the head insert has not been added to the HTML being rewritten, there
+        is no parsing context and the tag is not in BEFORE_HEAD_TAGS then the
+        head_insert will be "inserted" and set to None
+
+        :param str tag: The name of the tag to be rewritten
+        :param list[tuple[str, str]] tag_attrs: A list of tuples representing
+        the tags attributes
+        :param bool set_parsing_context: Boolean indicating if the parsing
+        context should be set
+        :return: True
+        :rtype: bool
+        """
         # special case: head insertion, before-head tags
         if (self.head_insert and
               not self._wb_parse_context
@@ -301,7 +333,8 @@ class HTMLRewriterMixin(StreamingRewriter):
             self.out.write(self.head_insert)
             self.head_insert = None
 
-        self._set_parse_context(tag, tag_attrs)
+        if set_parsing_context:
+            self._set_parse_context(tag, tag_attrs)
 
         # attr rewriting
         handler = self.rewrite_tags.get(tag)
@@ -587,7 +620,7 @@ class HTMLRewriter(HTMLRewriterMixin, HTMLParser):
             self.out.write('>')
 
     def handle_startendtag(self, tag, attrs):
-        self._rewrite_tag_attrs(tag, attrs)
+        self._rewrite_tag_attrs(tag, attrs, False)
 
         if tag != 'head' or not self._rewrite_head(True):
             self.out.write('/>')
