@@ -78,14 +78,31 @@ class RewriterApp(object):
         self.redirect_to_exact = config.get('redirect_to_exact')
 
         self.banner_view = BaseInsertView(self.jinja_env, self._html_templ('banner_html'))
+        self.bannerless_view = BaseInsertView(self.jinja_env, self._html_templ('blank_banner_html'))
 
         self.head_insert_view = HeadInsertView(self.jinja_env,
                                                self._html_templ('head_insert_html'),
                                                self.banner_view)
 
+        self.head_insert_bannerless_view = HeadInsertView(self.jinja_env,
+                                               self._html_templ('head_insert_html'),
+                                               self.bannerless_view)
+
+        self.head_framed_view = HeadInsertView(self.jinja_env,
+                                               self._html_templ('framed_insert_html'),
+                                               self.banner_view)
+
+        self.head_framed_bannerless_view = HeadInsertView(self.jinja_env,
+                                               self._html_templ('framed_insert_html'),
+                                               self.bannerless_view)
+
         self.frame_insert_view = TopFrameView(self.jinja_env,
                                                self._html_templ('frame_insert_html'),
                                                self.banner_view)
+
+        self.frame_insert_bannerless_view = TopFrameView(self.jinja_env,
+                                               self._html_templ('frame_insert_html'),
+                                               self.bannerless_view)
 
         self.error_view = BaseInsertView(self.jinja_env, self._html_templ('error_html'))
         self.not_found_view = BaseInsertView(self.jinja_env, self._html_templ('not_found_html'))
@@ -236,6 +253,7 @@ class RewriterApp(object):
         full_prefix = host_prefix + rel_prefix
 
         is_proxy = ('wsgiprox.proxy_host' in environ)
+        no_banner_mode = 'nobanner' in environ
 
         response = self.handle_custom_response(environ, wb_url,
                                                full_prefix, host_prefix,
@@ -248,6 +266,10 @@ class RewriterApp(object):
             environ['pywb_proxy_magic'] = environ['wsgiprox.proxy_host']
             urlrewriter = IdentityUrlRewriter(wb_url, '')
             framed_replay = False
+
+        elif wb_url.is_continuity():
+            urlrewriter = IdentityUrlRewriter(wb_url, '')
+            framed_replay = True
 
         else:
             urlrewriter = UrlRewriter(wb_url,
@@ -366,6 +388,19 @@ class RewriterApp(object):
         if is_ajax:
             head_insert_func = None
             urlrewriter.rewrite_opts['is_ajax'] = True
+
+        elif wb_url.is_continuity():
+            top_url = self.get_top_url(full_prefix, wb_url, cdx, kwargs)
+
+            d1 = (wb_url, full_prefix, host_prefix, top_url, environ, framed_replay)
+            d2 = {'replay_mod': self.replay_mod, 'config': self.config}
+
+            if framed_replay:
+                head_insert_func = self.head_framed_view.create_insert_func(*d1, **d2)
+
+            else:
+                head_insert_func = self.head_insert_view.create_insert_func(*d1, **d2)
+
         else:
             top_url = self.get_top_url(full_prefix, wb_url, cdx, kwargs)
             head_insert_func = (self.head_insert_view.
@@ -508,14 +543,13 @@ class RewriterApp(object):
 
     def _do_req(self, inputreq, wb_url, kwargs, skip_record):
         req_data = inputreq.reconstruct_request(wb_url.url)
-
         headers = {'Content-Length': str(len(req_data)),
                    'Content-Type': 'application/request'}
 
         if skip_record:
             headers['Recorder-Skip'] = '1'
 
-        if wb_url.is_latest_replay():
+        if wb_url.is_latest_replay() or wb_url.is_continuity():
             closest = 'now'
         else:
             closest = wb_url.timestamp
@@ -541,8 +575,17 @@ class RewriterApp(object):
         params = {}
         params['url'] = wb_url.url
         params['output'] = kwargs.get('output', 'json')
-        params['from'] = wb_url.timestamp
+        params['from'] = wb_url.timestamp if wb_url.timestamp != '+' else ''
         params['to'] = wb_url.end_timestamp
+
+        if wb_url.is_latest_replay() or wb_url.is_continuity():
+            closest = 'now'
+
+        else:
+            closest = wb_url.timestamp
+
+        if closest:
+            params['closest'] = closest
 
         upstream_url = self.get_upstream_url(wb_url, kwargs, params)
         upstream_url = upstream_url.replace('/resource/postreq', '/index')
@@ -620,6 +663,7 @@ class RewriterApp(object):
 
     def unrewrite_referrer(self, environ, full_prefix):
         referrer = environ.get('HTTP_REFERER')
+
         if not referrer:
             return False
 
@@ -667,15 +711,30 @@ class RewriterApp(object):
         if wb_url.is_query():
             return self.handle_query(environ, wb_url, kwargs, full_prefix)
 
-        if self.is_framed_replay(wb_url):
-            extra_params = self.get_top_frame_params(wb_url, kwargs)
-            return self.frame_insert_view.get_top_frame(wb_url,
-                                                        full_prefix,
-                                                        host_prefix,
-                                                        environ,
-                                                        self.frame_mod,
-                                                        self.replay_mod,
-                                                        coll='',
-                                                        extra_params=extra_params)
+        if wb_url.is_continuity():
+            return None
 
-        return None
+        if self.is_framed_replay(wb_url) and 'nobanner' in environ:
+            return self.frame_insert_bannerless_view.get_top_frame(
+                wb_url,
+                full_prefix,
+                host_prefix,
+                environ,
+                self.frame_mod,
+                self.replay_mod,
+                coll='',
+                extra_params=self.get_top_frame_params(wb_url, kwargs)
+            )
+
+        if self.is_framed_replay(wb_url):
+            return self.frame_insert_view.get_top_frame(
+                wb_url,
+                full_prefix,
+                host_prefix,
+                environ,
+                self.frame_mod,
+                self.replay_mod,
+                coll='',
+                extra_params=self.get_top_frame_params(wb_url, kwargs)
+            )
+
