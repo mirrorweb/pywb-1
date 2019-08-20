@@ -20,13 +20,16 @@ enable_memento: true
 # Replay content in an iframe
 framed_replay: true
 
+
 # Enable the CDX api
 enable_cdx_api: true
 
-banner_html: /Users/neilmunro/Dev/work/python/pywb-templates/banner.html
+continuity:
+  default_redirect_page: cnf.html?url=
 
 hooks:
    pre:
       - take_down_hook
    post:
       - take_down_hook
+

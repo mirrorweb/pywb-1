@@ -10,9 +10,6 @@ from warcio.statusandheaders import StatusAndHeaders
 from warcio.utils import to_native_str
 from wsgiprox.wsgiprox import WSGIProxMiddleware
 
-from pywb.recorder.multifilewarcwriter import MultiFileWARCWriter
-from pywb.recorder.recorderapp import RecorderApp
-
 from pywb.utils.loaders import load_yaml_config
 from pywb.utils.geventserver import GeventServer
 from pywb.utils.io import StreamIter
@@ -24,6 +21,8 @@ from pywb.rewrite.templateview import BaseInsertView
 from pywb.apps.static_handler import StaticHandler
 from pywb.apps.rewriterapp import RewriterApp, UpstreamException
 from pywb.apps.wbrequestresponse import WbResponse
+
+from pywb.rewrite.wburl import WbUrl
 
 import os
 import traceback
@@ -45,6 +44,7 @@ class FrontEndApp(object):
 
     REPLAY_API = 'http://localhost:%s/{coll}/resource/postreq'
     CDX_API = 'http://localhost:%s/{coll}/index'
+    CONTINUITY = 'http://localhost:%s/{coll}/resource/postreq'
     RECORD_SERVER = 'http://localhost:%s'
     RECORD_API = 'http://localhost:%s/%s/resource/postreq?param.recorder.coll={coll}'
 
@@ -72,8 +72,6 @@ class FrontEndApp(object):
         self.proxy_prefix = None  # the URL prefix to be used for the collection with proxy mode (e.g. /coll/id_/)
         self.proxy_coll = None  # the name of the collection that has proxy mode enabled
         self.init_proxy(config)
-
-        self.init_recorder(config.get('recorder'))
 
         self.init_autoindex(config.get('autoindex'))
 
@@ -114,6 +112,7 @@ class FrontEndApp(object):
         self.url_map.add(Rule(coll_prefix + self.cdx_api_endpoint, endpoint=self.serve_cdx))
         self.url_map.add(Rule(coll_prefix + '/', endpoint=self.serve_coll_page))
         self.url_map.add(Rule(coll_prefix + '/timemap/<timemap_output>/<path:url>', endpoint=self.serve_content))
+        self.url_map.add(Rule(coll_prefix + '/nobanner/<timemap_output>/<path:url>', endpoint=self.serve_content_nobanner))
 
         if self.recorder_path:
             self.url_map.add(Rule(coll_prefix + self.RECORD_ROUTE + '/<path:url>', endpoint=self.serve_record))
@@ -123,6 +122,11 @@ class FrontEndApp(object):
             self.url_map.add(Rule('/proxy-fetch/<path:url>', endpoint=self.proxy_fetch,
                                   methods=['GET', 'HEAD', 'OPTIONS']))
         self.url_map.add(Rule(coll_prefix + '/<path:url>', endpoint=self.serve_content))
+        self.url_map.add(Rule(coll_prefix + '/nobanner/<path:url>', endpoint=self.serve_content_nobanner))
+
+        # Continuty mode rule, enable only if in continuity mode.
+        if self.warcserver.config.get('continuity', False):
+            self.url_map.add(Rule(coll_prefix + '/+/<path:url>', endpoint=self.serve_continuity))
 
     def get_upstream_paths(self, port):
         """Retrieve a dictionary containing the full URLs of the upstream apps
@@ -132,43 +136,15 @@ class FrontEndApp(object):
         :rtype: dict[str, str]
         """
         base_paths = {
-                'replay': self.REPLAY_API % port,
-                'cdx-server': self.CDX_API % port,
-               }
+            'replay': self.REPLAY_API % port,
+            'cdx-server': self.CDX_API % port,
+            'continuity': self.CONTINUITY % port,
+        }
 
         if self.recorder_path:
             base_paths['record'] = self.recorder_path
 
         return base_paths
-
-    def init_recorder(self, recorder_config):
-        """Initialize the recording functionality of pywb. If recording_config is None this function is a no op"""
-        if not recorder_config:
-            self.recorder = None
-            self.recorder_path = None
-            return
-
-        if isinstance(recorder_config, str):
-            recorder_coll = recorder_config
-            recorder_config = {}
-        else:
-            recorder_coll = recorder_config['source_coll']
-
-        # TODO: support dedup
-        dedup_index = None
-        warc_writer = MultiFileWARCWriter(self.warcserver.archive_paths,
-                                          max_size=int(recorder_config.get('rollover_size', 1000000000)),
-                                          max_idle_secs=int(recorder_config.get('rollover_idle_secs', 600)),
-                                          filename_template=recorder_config.get('filename_template'),
-                                          dedup_index=dedup_index)
-
-        self.recorder = RecorderApp(self.RECORD_SERVER % str(self.warcserver_server.port), warc_writer,
-                                    accept_colls=recorder_config.get('source_filter'))
-
-
-        recorder_server = GeventServer(self.recorder, port=0)
-
-        self.recorder_path = self.RECORD_API % (recorder_server.port, recorder_coll)
 
     def init_autoindex(self, auto_interval):
         """Initialize and start the auto-indexing of the collections. If auto_interval is None this is a no op.
@@ -244,21 +220,25 @@ class FrontEndApp(object):
         except:
             self.raise_not_found(environ, 'Static File Not Found: {0}'.format(filepath))
 
-    def get_metadata(self, coll):
+    def get_metadata(self, coll, link_type='replay'):
         """Retrieve the metadata associated with a collection
 
         :param str coll: The name of the collection to receive metadata for
         :return: The collections metadata if it exists
         :rtype: dict
         """
+
         #if coll == self.all_coll:
         #    coll = '*'
 
-        metadata = {'coll': coll,
-                    'type': 'replay'}
+        metadata = {
+            'coll': coll,
+            'type': link_type,
+        }
 
         if coll in self.warcserver.list_fixed_routes():
             metadata.update(self.warcserver.get_coll_config(coll))
+
         else:
             metadata.update(self.metadata_cache.load(coll))
 
@@ -337,6 +317,12 @@ class FrontEndApp(object):
 
         return self.serve_content(environ, coll, url, record=True)
 
+    def serve_continuity(self, environ, url=None):
+        return self.serve_content({'continuity': '+', **environ}, url=url)
+
+    def serve_content_nobanner(self, environ, coll='$root', url='', timemap_output='', record=False):
+        return self.serve_content({'nobanner': 'true', **environ}, coll=coll, url=url, record=record)
+
     def serve_content(self, environ, coll='$root', url='', timemap_output='', record=False):
         """Serve the contents of a URL/Record rewriting the contents of the response when applicable.
 
@@ -350,6 +336,13 @@ class FrontEndApp(object):
         """
         if not self.is_valid_coll(coll):
             self.raise_not_found(environ, 'No handler for "/{0}"'.format(coll))
+
+        wb_url = WbUrl(url)
+
+        # Force url into continuity mode because the url doesn't contain
+        # enough information at this point to figure it out
+        if environ.get('continuity', '') == '+':
+            wb_url.type = WbUrl.CONTINUITY
 
         self.setup_paths(environ, coll, record)
 
@@ -365,6 +358,10 @@ class FrontEndApp(object):
                 wb_url_str += '?' + environ.get('QUERY_STRING')
 
         metadata = self.get_metadata(coll)
+
+        if wb_url.type == WbUrl.CONTINUITY:
+            metadata['type'] = WbUrl.CONTINUITY
+
         if record:
             metadata['type'] = 'record'
 
@@ -372,6 +369,9 @@ class FrontEndApp(object):
             metadata['output'] = timemap_output
 
         try:
+            if metadata.get('type', '') == WbUrl.CONTINUITY:
+                wb_url_str = '+/' + wb_url_str
+
             response = self.rewriterapp.render_content(wb_url_str, metadata, environ)
 
         except UpstreamException as ue:
