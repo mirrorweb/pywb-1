@@ -13,6 +13,12 @@ class WbException(Exception):
 
 
 #=================================================================
+class LegallyUnavailableException(WbException):
+    def status(self):
+        return '451 Unavailable For Legal Reasons'
+
+
+#=================================================================
 class AccessException(WbException):
     def status(self):
         return '403 Access Denied'

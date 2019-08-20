@@ -4,9 +4,12 @@
 
 collections:
     all: $all
-    pywb:
-        index_paths: ./sample_archive/cdx/
-        archive_paths: ./sample_archive/warcs/
+    $root:
+        index_group:
+          src1: ./collections/sample_archive/cdx1/
+          src2: ./collections/sample_archive/cdx2/
+        archive_paths: ./collections/sample_archive/archive/
+
 
 # Settings for each collection
 use_js_obj_proxy: true
@@ -17,5 +20,16 @@ enable_memento: true
 # Replay content in an iframe
 framed_replay: true
 
+
+# Enable the CDX api
+enable_cdx_api: true
+
 continuity:
   default_redirect_page: cnf.html?url=
+
+hooks:
+   pre:
+      - take_down_hook
+   post:
+      - take_down_hook
+

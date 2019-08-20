@@ -4,6 +4,8 @@ from pywb.warcserver.index.cdxobject import OFFSET, LENGTH, FILENAME
 
 from pywb.warcserver.index.query import CDXQuery
 
+from pywb.hooks.decorators import hooked
+
 from warcio.timeutils import timestamp_to_sec, pad_timestamp
 from warcio.timeutils import PAD_14_DOWN, PAD_14_UP
 
@@ -61,6 +63,7 @@ def cdx_to_json(cdx_iter, fields):
 
 
 #=================================================================
+@hooked()
 def process_cdx(cdx_iter, query):
     if query.resolve_revisits:
         cdx_iter = cdx_resolve_revisits(cdx_iter)

@@ -354,7 +354,6 @@ class FrontEndApp(object):
 
         else:
             wb_url_str = to_native_str(url)
-
             if environ.get('QUERY_STRING'):
                 wb_url_str += '?' + environ.get('QUERY_STRING')
 
@@ -374,6 +373,7 @@ class FrontEndApp(object):
                 wb_url_str = '+/' + wb_url_str
 
             response = self.rewriterapp.render_content(wb_url_str, metadata, environ)
+
         except UpstreamException as ue:
             response = self.rewriterapp.handle_error(environ, ue)
             raise HTTPException(response=response)
@@ -527,6 +527,9 @@ class FrontEndApp(object):
         :param dict config: The configuration object used to configure this instance of FrontEndApp
         """
         proxy_config = config.get('proxy')
+        self.proxy_prefix = None
+
+
         if not proxy_config:
             return
 
@@ -565,6 +568,7 @@ class FrontEndApp(object):
                                           self.proxy_route_request,
                                           proxy_host=proxy_config.get('host', 'pywb.proxy'),
                                           proxy_options=proxy_config)
+
 
     def proxy_route_request(self, url, environ):
         """ Return the full url that this proxy request will be routed to
@@ -679,5 +683,4 @@ class MetadataCache(object):
 if __name__ == "__main__":
     app_server = FrontEndApp.create_app(port=8080)
     app_server.join()
-
 
