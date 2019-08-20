@@ -114,6 +114,9 @@ class FrontEndApp(object):
         self.url_map.add(Rule(coll_prefix + '/timemap/<timemap_output>/<path:url>', endpoint=self.serve_content))
         self.url_map.add(Rule(coll_prefix + '/nobanner/<timemap_output>/<path:url>', endpoint=self.serve_content_nobanner))
 
+        if self.recorder_path:
+            self.url_map.add(Rule(coll_prefix + self.RECORD_ROUTE + '/<path:url>', endpoint=self.serve_record))
+
         if self.proxy_prefix is not None:
             # Add the proxy-fetch endpoint to enable PreservationWorker to make CORS fetches worry free in proxy mode
             self.url_map.add(Rule('/proxy-fetch/<path:url>', endpoint=self.proxy_fetch,
@@ -137,6 +140,9 @@ class FrontEndApp(object):
             'cdx-server': self.CDX_API % port,
             'continuity': self.CONTINUITY % port,
         }
+
+        if self.recorder_path:
+            base_paths['record'] = self.recorder_path
 
         return base_paths
 
@@ -214,7 +220,6 @@ class FrontEndApp(object):
         except:
             self.raise_not_found(environ, 'Static File Not Found: {0}'.format(filepath))
 
-
     def get_metadata(self, coll, link_type='replay'):
         """Retrieve the metadata associated with a collection
 
@@ -233,6 +238,7 @@ class FrontEndApp(object):
 
         if coll in self.warcserver.list_fixed_routes():
             metadata.update(self.warcserver.get_coll_config(coll))
+
         else:
             metadata.update(self.metadata_cache.load(coll))
 
