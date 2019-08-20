@@ -52,6 +52,4 @@ git_hash.py
 # Sphinx documentation
 docs/_build/*
 
-# python virtual envs
-.env
 .venv
