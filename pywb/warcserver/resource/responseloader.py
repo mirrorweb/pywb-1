@@ -1,36 +1,32 @@
-from warcio.timeutils import timestamp_to_datetime, datetime_to_timestamp
-from warcio.timeutils import iso_date_to_datetime, datetime_to_iso_date
-from warcio.timeutils import http_date_to_datetime, datetime_to_http_date
-from warcio.utils import to_native_str
-
-from warcio.statusandheaders import StatusAndHeaders, StatusAndHeadersParser
-
-from pywb.utils.wbexception import LiveResourceException, WbException
-
-from pywb.utils.canonicalize import canonicalize
-
-from pywb.utils.memento import MementoUtils
-from pywb.utils.io import StreamIter, compress_gzip_iter, call_release_conn
-from pywb.utils.format import ParamFormatter
-
-from pywb.warcserver.resource.resolvingloader import ResolvingLoader
-from pywb.warcserver.resource.pathresolvers import DefaultResolverMixin
-
-from pywb.warcserver.http import DefaultAdapters, SOCKS_PROXIES
-
-from six.moves.urllib.parse import urlsplit, quote, unquote
-
+import datetime
+import json
+import logging
+import os
+import uuid
 from io import BytesIO
 
-import uuid
 import six
-import itertools
-import json
-import glob
-import datetime
-import logging
-
 from requests.models import PreparedRequest
+from six.moves.urllib.parse import quote, unquote, urlsplit
+from warcio.statusandheaders import StatusAndHeaders, StatusAndHeadersParser
+from warcio.timeutils import (
+    datetime_to_http_date,
+    datetime_to_iso_date,
+    datetime_to_timestamp,
+    http_date_to_datetime,
+    iso_date_to_datetime,
+    timestamp_to_datetime
+)
+from warcio.utils import to_native_str
+
+from pywb.utils.canonicalize import canonicalize
+from pywb.utils.format import ParamFormatter
+from pywb.utils.io import StreamIter, call_release_conn, compress_gzip_iter, no_except_close
+from pywb.utils.memento import MementoUtils
+from pywb.utils.wbexception import LiveResourceException
+from pywb.warcserver.http import DefaultAdapters
+from pywb.warcserver.resource.pathresolvers import DefaultResolverMixin
+from pywb.warcserver.resource.resolvingloader import ResolvingLoader
 
 logger = logging.getLogger('warcserver')
 
@@ -217,8 +213,8 @@ class WARCPathLoader(DefaultResolverMixin, BaseLoader):
                                                 http_headers.get_statuscode(),
                                                 http_headers.get_header('Location'))
                 except LiveResourceException:
-                    headers.raw_stream.close()
-                    payload.raw_stream.close()
+                    no_except_close(headers.raw_stream)
+                    no_except_close(payload.raw_stream)
                     raise
 
                 http_headers_buff = http_headers.to_bytes()
@@ -237,8 +233,7 @@ class WARCPathLoader(DefaultResolverMixin, BaseLoader):
 
             warc_headers.replace_header('WARC-Date',
                      headers.rec_headers.get_header('WARC-Date'))
-
-            headers.raw_stream.close()
+            no_except_close(headers.raw_stream)
 
         return (warc_headers, http_headers_buff, payload.raw_stream)
 
@@ -261,6 +256,13 @@ class LiveWebLoader(BaseLoader):
 
     def __init__(self, forward_proxy_prefix=None, adapter=None):
         self.forward_proxy_prefix = forward_proxy_prefix
+
+        socks_host = os.environ.get('SOCKS_HOST')
+        socks_port = os.environ.get('SOCKS_PORT', 9050)
+        if socks_host and socks_port:
+            self.socks_proxy = 'socks5h://{0}:{1}'.format(socks_host, socks_port)
+        else:
+            self.socks_proxy = None
 
     def load_resource(self, cdx, params):
         load_url = cdx.get('load_url')
@@ -288,7 +290,7 @@ class LiveWebLoader(BaseLoader):
         p = PreparedRequest()
         try:
             p.prepare_url(load_url, None)
-        except:
+        except Exception:
             raise LiveResourceException(load_url)
         p.prepare_headers(None)
         p.prepare_auth(None, load_url)
@@ -320,6 +322,7 @@ class LiveWebLoader(BaseLoader):
         elif cdx.get('memento_url'):
         # if 'memento_url' set and no Memento-Datetime header present
         # then its an error
+            no_except_close(upstream_res)
             return None
 
         agg_type = upstream_res.headers.get('Warcserver-Type')
@@ -353,6 +356,17 @@ class LiveWebLoader(BaseLoader):
                     v = self.unrewrite_header(cdx, v)
 
                 http_headers_buff += n + ': ' + v + '\r\n'
+
+            http_headers_buff += '\r\n'
+
+            try:
+                # http headers could be encoded as utf-8 (though non-standard)
+                # first try utf-8 encoding
+                http_headers_buff = http_headers_buff.encode('utf-8')
+            except:
+                # then, fall back to latin-1
+                http_headers_buff = http_headers_buff.encode('latin-1')
+
         except:  #pragma: no cover
         #PY 2
             resp_headers = orig_resp.msg.headers
@@ -374,8 +388,8 @@ class LiveWebLoader(BaseLoader):
                 else:
                     http_headers_buff += line
 
-        http_headers_buff += '\r\n'
-        http_headers_buff = http_headers_buff.encode('latin-1')
+            # if python2, already byte headers, so leave as is
+            http_headers_buff += '\r\n'
 
         try:
             fp = upstream_res._fp.fp
@@ -469,26 +483,30 @@ class LiveWebLoader(BaseLoader):
         adapter = DefaultAdapters.live_adapter if is_live else DefaultAdapters.remote_adapter
         max_retries = adapter.max_retries
 
-        if SOCKS_PROXIES:
-            conn = adapter.get_connection(load_url, SOCKS_PROXIES)
+        # get either the poolmanager or proxy manager to handle this connection
+        if self.socks_proxy and not os.environ.get('SOCKS_DISABLE'):
+            manager = adapter.proxy_manager_for(self.socks_proxy)
         else:
-            conn = adapter.poolmanager
+            manager = adapter.poolmanager
 
+        upstream_res = None
         try:
-            upstream_res = conn.urlopen(method=method,
-                                        url=load_url,
-                                        body=data,
-                                        headers=req_headers,
-                                        redirect=False,
-                                        assert_same_host=False,
-                                        preload_content=False,
-                                        decode_content=False,
-                                        retries=max_retries,
-                                        timeout=params.get('_timeout'))
+            upstream_res = manager.urlopen(method=method,
+                                           url=load_url,
+                                           body=data,
+                                           headers=req_headers,
+                                           redirect=False,
+                                           assert_same_host=False,
+                                           preload_content=False,
+                                           decode_content=False,
+                                           retries=max_retries,
+                                           timeout=params.get('_timeout'))
 
             return upstream_res
 
         except Exception as e:
+            if upstream_res:
+                no_except_close(upstream_res)
             if logger.isEnabledFor(logging.DEBUG):
                 import traceback
                 traceback.print_exc()
@@ -516,7 +534,7 @@ class VideoLoader(BaseLoader):
             self.ydl = None
             return
 
-        self.ydl = YoutubeDL(dict(simulate=True,
+        self.ydl = YoutubeDL(dict(simulate=True, quiet=True,
                                   youtube_include_dash_manifest=False))
 
         self.ydl.add_default_info_extractors()

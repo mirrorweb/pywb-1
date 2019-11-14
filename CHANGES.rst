@@ -1,3 +1,152 @@
+pywb 2.3.5 changelist
+~~~~~~~~~~~~~~~~~~~~~
+
+* General auto-fetch fixes (#503)
+  - Fixed issue that caused HTTP 404 errors to happen when parsing <link> stylesheet hrefs as sheets (webrecorder/wombat #11)
+  - Ensured that requests made are cached by the browser (webrecorder/wombat #13 & #15)
+  - Ensured that the request made by the backing web worker when in proxy mode are not blocked by CORS (webrecorder/wombat #13 & #15)
+
+* SOCKS proxy fixes (#504)
+  - simplify SOCKS config (avoiding global socket monkey patch), default to no cert verify to match non-proxy behavior
+  - SOCKS proxy can be disabled dynamically by setting SOCKS_DISABLE
+
+
+pywb 2.3.4 changelist
+~~~~~~~~~~~~~~~~~~~~~
+
+* Improvements to auto-fetch to support page fetch (webrecroder/wombat#5, #497)
+  - Support fetching page with ``X-Wombat-History-Page`` and title ``X-Wombat-History-Title`` headers present.
+  - Attempt to extract title and pass along with cdx to ``_add_history_page()`` callback in RewriterApp, to indicate a url is a page. (#498)
+  - General auto-fetch fixes: queue messages if worker not yet inited (in proxy mode), only parse <link> stylesheet hrefs as sheets.
+
+* Cookie Rewriting Fix: don't update cookie cache on service worker (``sw_`` modifier) responses (#499)
+* Rewriting: HTML Unescape Fix: Attempt to HTML-entity-decode urls and innline styles that contain ``&#`` to get correct rewriting of encoded urls (#500)
+
+
+pywb 2.3.3 changelist
+~~~~~~~~~~~~~~~~~~~~~
+
+* Proxy Mode: Ensure head insert added even if no ``<head>`` tag, insert after first tag that is not ``<html>`` or ``<head>`` (#496)
+
+
+pywb 2.3.2 changelist
+~~~~~~~~~~~~~~~~~~~~~
+
+* Eval rewriting fix: don't rewrite ``$eval``, only ``eval`` identifier (#493)
+
+* Cookie rewriting improvements: (#491)
+    - Enable domain cookie cache for live index and recording modes using fakeredis, previously only available in Webrecorder
+    - Don't add duplicate cookies to Set-Cookie or Cookie headers
+    - Don't include cached Set-Cookie headers to serviceworkers for non-200 responses.
+    - Add cookies for ``sw_/`` and ``wkrf_`` modifiers
+    - Testing: add initial testing for domain cookie rewriting
+
+* Misc fixes: (#490)
+    - Ensure SCRIPT_NAME never empty (#490)
+    - Static Paths: load ``/index.html`` for paths ending in ``/``, ensure static_prefix always inited correctly
+    - Docker: switch to designated $VOLUME_DIR before initializing
+    - Rules: update rules for soundcloud
+
+
+pywb 2.3.1 changelist
+~~~~~~~~~~~~~~~~~~~~~
+
+* Fix regression in wombat, new window.parent override from (webrecorder/wombat#2) was throwing exception if top-frame was cross-origin (webrecorder/wombat#3)
+* Update to latest wombat, v3.0.0
+
+
+pywb 2.3.0 changelist
+~~~~~~~~~~~~~~~~~~~~~
+
+* Wombat Improvements and modularization:
+    - Client-side rewriting and auto-fetch systems moved to https://github.com/webrecorder/wombat
+    - Module-based setup and full testing for wombat
+    - Continuous auto-fetch up to 20 requests (#484)
+
+* Replay / Fidelity Improvements (#451):
+    - Introduced a new server-side rewriter, JSWorkerRewriter, that handles rewriting JS workers and service-workers
+    - Improvements to JSOP Rewriter to handle empty query (#475)
+    - Improvements to postMessage rewriting, override `eval(` while preserving scope (#475)
+    - Fixes to ``this`` proxy rewrite to include ``, this``
+
+* Misc Changes:
+    - Versioning: switched back to semver to more easily keep track of versions (#488)
+    - Improved handling of open http connections and file handles (#463)
+    - Fixes for latest urllib3, not verifying SSL certs (#467), (#469)
+    - Better logging for invalid cdxlines and cookies (#477), (#478)
+    - Fix warning in yaml.load (#472)
+    - Index invalid form-data as binary (#471)
+
+
+pywb 2.2.20190410 changelist
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* Improved rewriting of JSONP, support matching JSONP with ``//`` comments (fixes #459)
+
+
+pywb 2.2.20190311 changelist
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* Support for setting timestamp in proxy mode via ``--proxy-default-timestamp`` (fixes #452)
+* Remove any ``WB_wombat_`` found in POST requests from old versions of pywb.
+* Fixes new query UI when loading traditional calendar ``/*/<url>`` pages (#455, #456)
+
+
+pywb 2.2.x changelist
+~~~~~~~~~~~~~~~~~~~~~
+
+* New Versioning System: (#445)
+    - Switching to hybrid semantic / calendar ``major.minor.yyyymmdd`` versioning.
+    - The ``major.minor`` version will be updated for larger changes.
+    - The ``.yyyymmdd`` date component will be updated for smaller incremental releases, for fidelity improvements and smaller bug fixes.
+    
+
+* Auto Fetch System:
+    - Added ``picture > source[srcset]`` extraction and increased the robustness of relative srcset URLs resolution (#415)
+    - Enabled auto-fetching of video, audio resources (#427)
+    - Expoxed AutoFetchWorker api in proxy mode to allow external JS to initiate checks (#389)
+
+* Build / CI Improvements:
+    - Tweaked usage of wr-tests in CI (#431)
+    - Ensured that usage of XVFB works on travis.ci (#436)
+    - Updated Docker image to support
+    - Python 3.7 support and CI testing (#447)
+
+* Docker:
+    - Updated Docker image to Python 3.7.2, match docker user uid/gid to that of existing volume (#446)
+    - Add documentation for using Docker image and automated images (#448)
+
+* Fuzzy Matching:
+    - Added an additional Facebook rule targeting timeline replay (#440)
+
+* Memento:
+    - Fixed regression in FrontendApp when handling TimeMap requests (#423)
+
+* Recording:
+    - Remove Transer-Encoding from internal response (#437)
+    - If brotli decoding package can't be loaded, remove ``br`` from ``Accept-Encoding`` header (#444)
+
+* Replay / Fidelity Improvements:
+    - Wombat now uses the actual page scheme instead of defaulting to http when extracting the original url (#404)
+    - Improved URL rewriting in web workers (#420)
+    - Improved replay of content coming from a frameset's frame (#438)
+    - Updated rules for facebook (#440)
+    - Introduce new banner behavior and ensured that banner does not become stuck displaying "Loading..." (#418)
+
+* Server-Side Rewriting:
+    - Improved the rewriting process of HTTP headers that are encoded in the non-standard ``UTF-8`` encoding (#402)
+    - Improved the JavaScript rewriter's rewrites of the ``location`` symbol in order to avoid rewriting ``$location`` (#403)
+    - Added an additional check of ``text/html`` content to ensure that it is actually ``html`` (#428)
+    - Fixed HTML detection for UTF-8 files starting with BOM (#441)
+    - Fixed parsing of invalid conditional comments, eg. treat '<![endif]-->' as '<![endif]>' (#441)
+
+* UI:
+   -  New Query UI with support for prefix queries, forms for advanced search via cdx server api, incremental results loading (#421)
+
+
+
+
+
 pywb 2.1.0 changelist
 ~~~~~~~~~~~~~~~~~~~~~
 

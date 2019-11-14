@@ -1,35 +1,26 @@
+from io import BytesIO
+
 import requests
+from fakeredis import FakeStrictRedis
 
-from werkzeug.http import HTTP_STATUS_CODES
-from six.moves.urllib.parse import urlencode, urlsplit, urlunsplit
-
-from pywb.rewrite.default_rewriter import DefaultRewriter, RewriterWithJSProxy
-
-from pywb.rewrite.wburl import WbUrl
-from pywb.rewrite.url_rewriter import UrlRewriter, IdentityUrlRewriter
-
-from pywb.utils.wbexception import WbException
-from pywb.utils.canonicalize import canonicalize
-from pywb.utils.loaders import extract_client_cookie
-from pywb.utils.io import BUFF_SIZE, OffsetLimitReader
-from pywb.utils.memento import MementoUtils
-
-from warcio.timeutils import http_date_to_timestamp, timestamp_to_http_date
+from six.moves.urllib.parse import urlencode, urlsplit, urlunsplit, unquote
 from warcio.bufferedreaders import BufferedReader
 from warcio.recordloader import ArcWarcRecordLoader
+from warcio.timeutils import http_date_to_timestamp, timestamp_to_http_date
+from werkzeug.http import HTTP_STATUS_CODES
 
-from pywb.warcserver.index.cdxobject import CDXObject
 from pywb.apps.wbrequestresponse import WbResponse
-
+from pywb.rewrite.default_rewriter import DefaultRewriter, RewriterWithJSProxy
 from pywb.rewrite.rewriteinputreq import RewriteInputRequest
-from pywb.rewrite.templateview import JinjaEnv, HeadInsertView, TopFrameView, BaseInsertView
-
-
-from io import BytesIO
-from copy import copy
-
-import gevent
-import json
+from pywb.rewrite.templateview import BaseInsertView, HeadInsertView, JinjaEnv, TopFrameView
+from pywb.rewrite.url_rewriter import IdentityUrlRewriter, UrlRewriter
+from pywb.rewrite.wburl import WbUrl
+from pywb.rewrite.cookies import CookieTracker
+from pywb.utils.canonicalize import canonicalize
+from pywb.utils.io import BUFF_SIZE, OffsetLimitReader, no_except_close
+from pywb.utils.memento import MementoUtils
+from pywb.utils.wbexception import WbException
+from pywb.warcserver.index.cdxobject import CDXObject
 
 
 # ============================================================================
@@ -40,7 +31,7 @@ class UpstreamException(WbException):
 
 
 # ============================================================================
-#class Rewriter(RewriteDASHMixin, RewriteAMFMixin, RewriteContent):
+# class Rewriter(RewriteDASHMixin, RewriteAMFMixin, RewriteContent):
 #    pass
 
 
@@ -84,8 +75,8 @@ class RewriterApp(object):
                                                self.banner_view)
 
         self.frame_insert_view = TopFrameView(self.jinja_env,
-                                               self._html_templ('frame_insert_html'),
-                                               self.banner_view)
+                                              self._html_templ('frame_insert_html'),
+                                              self.banner_view)
 
         self.error_view = BaseInsertView(self.jinja_env, self._html_templ('error_html'))
         self.not_found_view = BaseInsertView(self.jinja_env, self._html_templ('not_found_html'))
@@ -93,7 +84,7 @@ class RewriterApp(object):
 
         self.use_js_obj_proxy = config.get('use_js_obj_proxy', True)
 
-        self.cookie_tracker = None
+        self.cookie_tracker = self._init_cookie_tracker()
 
         self.enable_memento = self.config.get('enable_memento')
 
@@ -105,6 +96,9 @@ class RewriterApp(object):
 
         # deprecated: Use X-Forwarded-Proto header instead!
         self.force_scheme = config.get('force_scheme')
+
+    def _init_cookie_tracker(self):
+        return CookieTracker(FakeStrictRedis())
 
     def add_csp_header(self, wb_url, status_headers):
         if self.csp_header and wb_url.mod == self.replay_mod:
@@ -129,10 +123,14 @@ class RewriterApp(object):
             if accept_dt:
                 try:
                     wb_url.timestamp = http_date_to_timestamp(accept_dt)
-                except:
+                except Exception:
                     raise UpstreamException(400, url=wb_url.url, details='Invalid Accept-Datetime')
-                    #return WbResponse.text_response('Invalid Accept-Datetime', status='400 Bad Request')
+                    # return WbResponse.text_response('Invalid Accept-Datetime', status='400 Bad Request')
 
+                wb_url.type = wb_url.REPLAY
+
+            elif 'pywb_proxy_default_timestamp' in environ:
+                wb_url.timestamp = environ['pywb_proxy_default_timestamp']
                 wb_url.type = wb_url.REPLAY
 
         return is_timegate
@@ -159,7 +157,7 @@ class RewriterApp(object):
         range_start = start
         range_end = end
 
-        #if start with 0, load from upstream, but add range after
+        # if start with 0, load from upstream, but add range after
         if start == 0:
             del inputreq.env['HTTP_RANGE']
         else:
@@ -189,11 +187,6 @@ class RewriterApp(object):
 
             if range_start >= content_length or range_end >= content_length:
                 details = 'Invalid Range: {0} >= {2} or {1} >= {2}'.format(range_start, range_end, content_length)
-                try:
-                    r.raw.close()
-                except:
-                    pass
-
                 raise UpstreamException(416, url=wb_url.url, details=details)
 
             range_len = range_end - range_start + 1
@@ -229,12 +222,21 @@ class RewriterApp(object):
         if proto:
             environ['wsgi.url_scheme'] = proto
 
+        history_page = environ.pop('HTTP_X_WOMBAT_HISTORY_PAGE', '')
+        if history_page:
+            wb_url.url = history_page
+            is_ajax = True
+        else:
+            is_ajax = self.is_ajax(environ)
+
         is_timegate = self._check_accept_dt(wb_url, environ)
 
         host_prefix = self.get_host_prefix(environ)
         rel_prefix = self.get_rel_prefix(environ)
         full_prefix = host_prefix + rel_prefix
-
+        environ['pywb.host_prefix'] = host_prefix
+        pywb_static_prefix = host_prefix + environ.get('pywb.app_prefix', '') + environ.get(
+            'pywb.static_prefix', '/static/')
         is_proxy = ('wsgiprox.proxy_host' in environ)
 
         response = self.handle_custom_response(environ, wb_url,
@@ -253,7 +255,8 @@ class RewriterApp(object):
             urlrewriter = UrlRewriter(wb_url,
                                       prefix=full_prefix,
                                       full_prefix=full_prefix,
-                                      rel_prefix=rel_prefix)
+                                      rel_prefix=rel_prefix,
+                                      pywb_static_prefix=pywb_static_prefix)
 
             framed_replay = self.framed_replay
 
@@ -264,8 +267,6 @@ class RewriterApp(object):
         self.unrewrite_referrer(environ, full_prefix)
 
         urlkey = canonicalize(wb_url.url)
-
-        environ['pywb.host_prefix'] = host_prefix
 
         if self.use_js_obj_proxy:
             content_rw = self.js_proxy_rw
@@ -279,10 +280,15 @@ class RewriterApp(object):
         range_start, range_end, skip_record = self._check_range(inputreq, wb_url)
 
         setcookie_headers = None
+        cookie_key = None
         if self.cookie_tracker:
             cookie_key = self.get_cookie_key(kwargs)
-            res = self.cookie_tracker.get_cookie_headers(wb_url.url, urlrewriter, cookie_key)
-            inputreq.extra_cookie, setcookie_headers = res
+            if cookie_key:
+                res = self.cookie_tracker.get_cookie_headers(wb_url.url,
+                                                             urlrewriter,
+                                                             cookie_key,
+                                                             environ.get('HTTP_COOKIE', ''))
+                inputreq.extra_cookie, setcookie_headers = res
 
         r = self._do_req(inputreq, wb_url, kwargs, skip_record)
 
@@ -290,9 +296,10 @@ class RewriterApp(object):
             error = None
             try:
                 error = r.raw.read()
-                r.raw.close()
-            except:
+            except Exception:
                 pass
+            finally:
+                no_except_close(r.raw)
 
             if error:
                 error = error.decode('utf-8')
@@ -310,10 +317,7 @@ class RewriterApp(object):
             # add trailing slash
             new_path = url_parts.path + '/'
 
-            try:
-                r.raw.close()
-            except:
-                pass
+            no_except_close(r.raw)
 
             return self.send_redirect(new_path, url_parts, urlrewriter)
 
@@ -324,9 +328,9 @@ class RewriterApp(object):
         memento_dt = r.headers.get('Memento-Datetime')
         target_uri = r.headers.get('WARC-Target-URI')
 
-        #cdx['urlkey'] = urlkey
-        #cdx['timestamp'] = http_date_to_timestamp(memento_dt)
-        #cdx['url'] = target_uri
+        # cdx['urlkey'] = urlkey
+        # cdx['timestamp'] = http_date_to_timestamp(memento_dt)
+        # cdx['url'] = target_uri
 
         set_content_loc = False
 
@@ -337,7 +341,7 @@ class RewriterApp(object):
         # if redir to exact, redir if url or ts are different
         if self.redirect_to_exact:
             if (set_content_loc or
-                (wb_url.timestamp != cdx.get('timestamp') and not cdx.get('is_live'))):
+                    (wb_url.timestamp != cdx.get('timestamp') and not cdx.get('is_live'))):
 
                 new_url = urlrewriter.get_new_url(url=target_uri,
                                                   timestamp=cdx['timestamp'],
@@ -361,26 +365,29 @@ class RewriterApp(object):
         if self._add_range(record, wb_url, range_start, range_end):
             wb_url.mod = 'id_'
 
-        is_ajax = self.is_ajax(environ)
-
         if is_ajax:
             head_insert_func = None
             urlrewriter.rewrite_opts['is_ajax'] = True
         else:
             top_url = self.get_top_url(full_prefix, wb_url, cdx, kwargs)
             head_insert_func = (self.head_insert_view.
-                                    create_insert_func(wb_url,
-                                                       full_prefix,
-                                                       host_prefix,
-                                                       top_url,
-                                                       environ,
-                                                       framed_replay,
-                                                       coll=kwargs.get('coll', ''),
-                                                       replay_mod=self.replay_mod,
-                                                       config=self.config))
+                                create_insert_func(wb_url,
+                                                   full_prefix,
+                                                   host_prefix,
+                                                   top_url,
+                                                   environ,
+                                                   framed_replay,
+                                                   coll=kwargs.get('coll', ''),
+                                                   replay_mod=self.replay_mod,
+                                                   config=self.config))
 
         cookie_rewriter = None
-        if self.cookie_tracker:
+        if self.cookie_tracker and cookie_key:
+            # skip add cookie if service worker is not 200
+            # it seems cookie headers from service workers are not applied, so don't update in cache
+            if wb_url.mod == 'sw_':
+                cookie_key = None
+
             cookie_rewriter = self.cookie_tracker.get_rewriter(urlrewriter,
                                                                cookie_key)
 
@@ -389,6 +396,17 @@ class RewriterApp(object):
         result = content_rw(record, urlrewriter, cookie_rewriter, head_insert_func, cdx, environ)
 
         status_headers, gen, is_rw = result
+
+        if history_page:
+            title = DefaultRewriter._extract_title(gen)
+            if not title:
+                title = unquote(environ.get('HTTP_X_WOMBAT_HISTORY_TITLE', ''))
+
+            if not title:
+                title = history_page
+
+            self._add_history_page(cdx, kwargs, title)
+            return WbResponse.json_response({'title': title})
 
         if setcookie_headers:
             status_headers.headers.extend(setcookie_headers)
@@ -505,7 +523,6 @@ class RewriterApp(object):
 
         return WbResponse.text_response(resp, status=status, content_type='text/html')
 
-
     def _do_req(self, inputreq, wb_url, kwargs, skip_record):
         req_data = inputreq.reconstruct_request(wb_url.url)
 
@@ -612,7 +629,7 @@ class RewriterApp(object):
         return scheme + host
 
     def get_rel_prefix(self, environ):
-        #return request.script_name
+        # return request.script_name
         return environ.get('SCRIPT_NAME') + '/'
 
     def get_full_prefix(self, environ):
@@ -652,7 +669,15 @@ class RewriterApp(object):
         return base_url
 
     def get_cookie_key(self, kwargs):
-        raise NotImplemented()
+        # note: currently this is per-collection, so enabled only for live or recording
+        # to support multiple users recording/live, would need per user cookie
+        if kwargs.get('index') == '$live' or kwargs.get('type') == 'record':
+            return 'cookie:' + kwargs['coll']
+        else:
+            return None
+
+    def _add_history_page(self, cdx, kwargs, doc_title):
+        pass
 
     def _add_custom_params(self, cdx, headers, kwargs, record):
         pass

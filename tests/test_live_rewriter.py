@@ -1,14 +1,67 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 from .base_config_test import BaseConfigTest, fmod_sl
 from pywb.warcserver.test.testutils import HttpBinLiveTests
+
+from pywb.utils.geventserver import GeventServer
 import pytest
+import os
 import sys
+import six
+
+
+# ============================================================================
+def header_test_server(environ, start_response):
+    headers = []
+    if environ['PATH_INFO'] == '/unicode':
+        body = b'body'
+        value = u'⛄'
+        value = value.encode('utf-8')
+        if six.PY3:
+            value = value.decode('latin-1')
+
+        headers = [('Content-Length', str(len(body))),
+                   ('x-utf-8', value)]
+
+    elif environ['PATH_INFO'] == '/html-title':
+        body = b'<html><title>Test&#39;Title</title></html>'
+
+        headers = [('Content-Length', str(len(body))),
+                   ('Content-Type', 'text/html')]
+
+    start_response('200 OK', headers=headers)
+    return [body]
+
+
+# ============================================================================
+def cookie_test_server(environ, start_response):
+    body = 'cookie value: ' + environ.get('HTTP_COOKIE', '')
+    body = body.encode('utf-8')
+    headers = [('Content-Length', str(len(body))),
+               ('Content-Type', 'text/plain')]
+
+    if b'testcookie' not in body:
+        headers.append(('Set-Cookie', 'testcookie=cookie-val; Path=/; Domain=.example.com'))
+
+    start_response('200 OK', headers=headers)
+    return [body]
 
 
 # ============================================================================
 class TestLiveRewriter(HttpBinLiveTests, BaseConfigTest):
     @classmethod
     def setup_class(cls):
+        cls.lint_app = False
         super(TestLiveRewriter, cls).setup_class('config_test.yaml')
+        cls.header_test_serv = GeventServer(header_test_server)
+        cls.cookie_test_serv = GeventServer(cookie_test_server)
+
+    @classmethod
+    def teardown_class(cls):
+        cls.header_test_serv.stop()
+        cls.cookie_test_serv.stop()
+        super(TestLiveRewriter, cls).teardown_class()
 
     def test_live_live_1(self, fmod_sl):
         headers = [('User-Agent', 'python'), ('Referer', 'http://localhost:80/live/other.example.com')]
@@ -58,6 +111,46 @@ class TestLiveRewriter(HttpBinLiveTests, BaseConfigTest):
         assert resp.headers['Content-Length'] == '90'
         assert resp.headers['Content-Range'] == 'bytes 0-89/90'
 
+    def test_custom_unicode_header(self, fmod_sl):
+        value = u'⛄'
+        value = value.encode('utf-8')
+        if six.PY3:
+            value = value.decode('latin-1')
+
+        resp = self.get('/live/{0}http://localhost:%s/unicode' % self.header_test_serv.port, fmod_sl)
+        assert resp.headers['x-utf-8'] == value
+
+    def test_domain_cookie(self, fmod_sl):
+        resp = self.get('/live/{0}http://localhost:%s/' % self.cookie_test_serv.port, fmod_sl,
+                        headers={'Host': 'example.com'})
+
+        assert resp.headers['Set-Cookie'] == 'testcookie=cookie-val; Path=/live/{0}http://localhost:{1}/'.format(fmod_sl, self.cookie_test_serv.port)
+        assert resp.text == 'cookie value: '
+
+        resp = self.get('/live/{0}http://localhost:%s/' % self.cookie_test_serv.port, fmod_sl,
+                        headers={'Host': 'example.com'})
+
+        assert resp.text == 'cookie value: testcookie=cookie-val'
+
+        resp = self.get('/live/{0}http://localhost:%s/' % self.cookie_test_serv.port, fmod_sl,
+                        headers={'Host': 'sub.example.com'})
+
+        assert 'Set-Cookie' not in resp.headers
+        assert resp.text == 'cookie value: testcookie=cookie-val'
+
+    def test_fetch_page_with_html_title(self, fmod_sl):
+        resp = self.get('/live/{0}http://localhost:%s/html-title' % self.header_test_serv.port, fmod_sl,
+                        headers={'X-Wombat-History-Page': 'http://localhost:{0}/html-title'.format(self.header_test_serv.port),
+                                })
+        assert resp.json == {'title': "Test'Title"}
+
+    def test_fetch_page_with_title(self, fmod_sl):
+        resp = self.get('/live/{0}http://httpbin.org/html', fmod_sl,
+                        headers={'X-Wombat-History-Page': 'http://httpbin.org/html',
+                                 'X-Wombat-History-Title': 'Test%20Title',
+                                })
+        assert resp.json == {'title': 'Test Title'}
+
     def test_live_live_frame(self):
         resp = self.testapp.get('/live/http://example.com/')
         assert resp.status_int == 200
@@ -76,6 +169,7 @@ class TestLiveRewriter(HttpBinLiveTests, BaseConfigTest):
         resp = resp.follow(status=400)
         assert resp.status_int == 400
 
+    @pytest.mark.skipif(os.environ.get('CI') is not None, reason='Skip Test on CI')
     def test_live_video_info(self):
         pytest.importorskip('youtube_dl')
         resp = self.testapp.get('/live/vi_/https://www.youtube.com/watch?v=DjFZyFWSt1M')

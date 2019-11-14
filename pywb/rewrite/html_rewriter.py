@@ -11,17 +11,34 @@ from six.moves.urllib.parse import urljoin, urlsplit, urlunsplit
 from pywb.rewrite.url_rewriter import UrlRewriter
 from pywb.rewrite.regex_rewriters import JSRewriter, CSSRewriter
 
-from pywb.rewrite.content_rewriter import StreamingRewriter
+from pywb.rewrite.content_rewriter import StreamingRewriter, BaseContentRewriter
+
+from six import text_type
 
 import six.moves.html_parser
 
 try:
     orig_unescape = six.moves.html_parser.unescape
     six.moves.html_parser.unescape = lambda x: x
+    BaseContentRewriter.set_unescape(orig_unescape)
 except:
     orig_unescape = None
 
-from six import text_type
+    @staticmethod
+    def __unescape(x):
+        return HTMLParser().unescape(x)
+
+    BaseContentRewriter.set_unescape(__unescape)
+
+
+try:
+    import _markupbase as markupbase
+except:
+    import markupbase as markupbase
+
+# ensure invalid cond ending ']-->' closing decl
+# is treated same as ']>'
+markupbase._msmarkedsectionclose = re.compile(r']\s*-{0,2}>')
 
 
 #=================================================================
@@ -48,7 +65,7 @@ class HTMLRewriterMixin(StreamingRewriter):
             'embed':   {'src': 'oe_'},
             'head':    {'': defmod},  # for head rewriting
             'iframe':  {'src': 'if_'},
-            'image':   {'src': 'im_', 'xlink:href': 'im_'},
+            'image':   {'src': 'im_', 'xlink:href': 'im_', 'href': 'im_'},
             'img':     {'src': 'im_',
                         'srcset': 'im_'},
             'ins':     {'cite': defmod},
@@ -64,16 +81,12 @@ class HTMLRewriterMixin(StreamingRewriter):
             'q':       {'cite': defmod},
             'ref':     {'href': 'oe_'},
             'script':  {'src': 'js_', 'xlink:href': 'js_'},  # covers both HTML and SVG script tags
-            'source':  {'src': 'oe_'},
+            'source':  {'src': 'oe_', 'srcset': 'oe_'},
             'video':   {'src': 'oe_',
                         'poster': 'im_'},
         }
 
         return rewrite_tags
-
-    # tags allowed in the <head> of an html document
-    HEAD_TAGS = ['html', 'head', 'base', 'link', 'meta',
-                 'title', 'style', 'script', 'object', 'bgsound']
 
     BEFORE_HEAD_TAGS = ['html', 'head']
 
@@ -156,6 +169,16 @@ class HTMLRewriterMixin(StreamingRewriter):
                                     re.IGNORECASE | re.MULTILINE)
 
     ADD_WINDOW = re.compile('(?<![.])(WB_wombat_)')
+
+    SRCSET_REGEX = re.compile('\s*(\S*\s+[\d\.]+[wx]),|(?:\s*,(?:\s+|(?=https?:)))')
+
+    def _rewrite_srcset(self, value, mod=''):
+        if not value:
+            return ''
+
+        values = (url.strip() for url in re.split(self.SRCSET_REGEX, value) if url)
+        values = [self._rewrite_url(v.strip()) for v in values]
+        return ', '.join(values)
 
     def _rewrite_meta_refresh(self, meta_refresh):
         if not meta_refresh:
@@ -255,7 +278,7 @@ class HTMLRewriterMixin(StreamingRewriter):
         return rewritten_value
 
     def try_unescape(self, value):
-        if not value.startswith('http'):
+        if '&#' not in value:
             return value
 
         try:
@@ -268,21 +291,17 @@ class HTMLRewriterMixin(StreamingRewriter):
 
         return new_value
 
-    SRCSET_REGEX = re.compile('\s*(\S*\s+[\d\.]+[wx]),|(?:\s*,(?:\s+|(?=https?:)))')
-
-    def _rewrite_srcset(self, value, mod=''):
-        if not value:
-            return ''
-
-        values = (url.strip() for url in re.split(self.SRCSET_REGEX, value) if url)
-        values = [self._rewrite_url(v.strip()) for v in values]
-        return ', '.join(values)
-
     def _rewrite_css(self, css_content):
-        if css_content:
-            return self.css_rewriter.rewrite_complete(css_content)
-        else:
+        if not css_content:
             return ''
+
+        unesc_css = self.try_unescape(css_content)
+        rw_css = self.css_rewriter.rewrite_complete(unesc_css)
+
+        if unesc_css == rw_css:
+            return css_content
+        else:
+            return rw_css
 
     def _rewrite_script(self, script_content, inline_attr=False):
         if not script_content:

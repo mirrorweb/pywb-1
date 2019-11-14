@@ -107,9 +107,11 @@ r"""
 #<a href="/web/20131226101010/http://испытание.испытание/">испытание</a>
 
 # entity unescaping
-#>>> parse('<a href="http&#x3a;&#x2f;&#x2f;www&#x2e;example&#x2e;com&#x2f;path&#x2f;file.html">')
-<a href="/web/20131226101010/http://www.example.com/path/file.html">
+>>> parse('<a href="http&#x3a;&#x2f;&#x2f;www&#x2e;example&#x2e;com&#x2f;path&#x2f;file.html">')
+<a href="/web/20131226101010/http&#x3a;&#x2f;&#x2f;www&#x2e;example&#x2e;com&#x2f;path&#x2f;file.html">
 
+>>> parse('<a href="&#x2f;&#x2f;www&#x2e;example&#x2e;com&#x2f;path&#x2f;file.html">')
+<a href="/web/20131226101010/&#x2f;&#x2f;www&#x2e;example&#x2e;com&#x2f;path&#x2f;file.html">
 
 # Meta tag
 >>> parse('<META http-equiv="refresh" content="10; URL=/abc/def.html">')
@@ -253,6 +255,9 @@ r"""
 >>> parse('<i style=\'background-image: url(&quot;http://foo.example.com/&quot;)\'></i>')
 <i style="background-image: url(&quot;/web/20131226101010/http://foo.example.com/&quot;)"></i>
 
+>>> parse('<i style=\'background-image: url(&#x27;http://foo.example.com/&#x27;)\'></i>')
+<i style="background-image: url('/web/20131226101010/http://foo.example.com/')"></i>
+
 >>> parse("<i style='background-image: url(&apos;http://foo.example.com/&apos;)'></i>")
 <i style="background-image: url(&apos;/web/20131226101010/http://foo.example.com/&apos;)"></i>
 
@@ -285,6 +290,10 @@ r"""
 
 >>> parse('<!DOCTYPE html>Some Text without any tags <!-- comments -->', head_insert = '<script>load_stuff();</script>')
 <!DOCTYPE html>Some Text without any tags <!-- comments --><script>load_stuff();</script>
+
+# UTF-8 BOM
+>>> parse('\ufeff<!DOCTYPE html>Some Text without any tags <!-- comments -->', head_insert = '<script>load_stuff();</script>')
+\ufeff<!DOCTYPE html>Some Text without any tags <!-- comments --><script>load_stuff();</script>
 
 # no parse comments
 >>> parse('<html><!-- <a href="/foo.html"> --></html>')
@@ -385,7 +394,7 @@ r"""
 
 # parse attr with js proxy, rewrite location assignment
 >>> parse('<html><a href="javascript:location=\'foo.html\'"></a></html>', js_proxy=True)
-<html><a href="javascript:{ location=(self.__WB_check_loc && self.__WB_check_loc(location) || {}).href = 'foo.html' }"></a></html>
+<html><a href="javascript:{ location=((self.__WB_check_loc && self.__WB_check_loc(location)) || {}).href = 'foo.html' }"></a></html>
 
 # parse attr with js proxy, assigning to location.href, no location assignment rewrite needed
 >>> parse('<html><a href="javascript:location.href=\'foo.html\'"></a></html>', js_proxy=True)
@@ -395,6 +404,13 @@ r"""
 >>> parse('<html><a href="javascript:alert()"></a></html>', js_proxy=True)
 <html><a href="javascript:alert()"></a></html>
 
+# IE conditional
+>>> parse('<!--[if !IE]><html><![endif]--><a href="http://example.com/"><!--[if IE]><![endif]--><a href="http://example.com/"></html>')
+<!--[if !IE]><html><![endif]--><a href="/web/20131226101010/http://example.com/"><!--[if IE]><![endif]--><a href="/web/20131226101010/http://example.com/"></html>
+
+# IE conditional with invalid ']-->' ending, rewritten as ']>'
+>>> parse('<!--[if !IE]> --><html><![endif]--><a href="http://example.com/"><!--[if IE]><![endif]--><a href="http://example.com/"></html>')
+<!--[if !IE]> --><html><![endif]><a href="/web/20131226101010/http://example.com/"><!--[if IE]><![endif]--><a href="/web/20131226101010/http://example.com/"></html>
 
 
 # Test blank

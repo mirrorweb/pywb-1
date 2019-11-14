@@ -1,24 +1,50 @@
-from io import BytesIO
-
+import codecs
+import json
+import re
+import tempfile
 from contextlib import closing
 
+import webencodings
 from warcio.bufferedreaders import BufferedReader, ChunkedDataReader
 from warcio.utils import to_native_str
 
-import re
-import webencodings
-import tempfile
-import json
-import codecs
+from pywb.utils.io import BUFF_SIZE, StreamIter, no_except_close
+from pywb.utils.loaders import load_py_name, load_yaml_config
 
-from pywb.utils.io import StreamIter, BUFF_SIZE
-
-from pywb.utils.loaders import load_yaml_config, load_py_name
+WORKER_MODS = {"wkr_", "sw_"}  # type: Set[str]
 
 
 # ============================================================================
 class BaseContentRewriter(object):
     CHARSET_REGEX = re.compile(b'<meta[^>]*?[\s;"\']charset\s*=[\s"\']*([^\s"\'/>]*)')
+
+    TITLE = re.compile(r'<\s*title\s*>(.*)<\s*\/\s*title\s*>', re.M | re.I | re.S)
+
+    # set via html_rewriter since it overrides the default one
+    html_unescape = None
+
+    @classmethod
+    def set_unescape(cls, unescape):
+        cls.html_unescape = unescape
+
+    @classmethod
+    def _extract_title(cls, gen):
+        title_res = list(gen)
+        if not title_res or not title_res[0]:
+            return
+
+        m = cls.TITLE.search(title_res[0].decode('utf-8'))
+        if not m:
+            return
+
+        title_res = m.group(1)
+        title_res = title_res.strip()
+        try:
+            title_res = cls.html_unescape(title_res)
+        except Exception as e:
+            pass
+
+        return title_res
 
     def __init__(self, rules_file, replay_mod=''):
         self.rules = []
@@ -342,12 +368,13 @@ class StreamingRewriter(object):
                 yield buff.encode(charset)
 
         finally:
-            stream.close()
+            no_except_close(stream)
 
 
 # ============================================================================
 class RewriteInfo(object):
-    TAG_REGEX = re.compile(b'^\s*\<')
+    TAG_REGEX = re.compile(b'^(\xef\xbb\xbf)?\s*\<')
+    TAG_REGEX2 = re.compile(b'^.*<\w+[\s>]')
     JSON_REGEX = re.compile(b'^\s*[{[][{"]')  # if it starts with this then highly likely not HTML
 
     JSONP_CONTAINS = ['callback=jQuery',
@@ -391,7 +418,7 @@ class RewriteInfo(object):
         text_type = self._resolve_text_type(orig_text_type)
         url = self.url_rewriter.wburl.url
 
-        if text_type in ('guess-text', 'guess-bin'):
+        if text_type in ('guess-text', 'guess-bin', 'guess-html'):
             text_type = None
 
         if text_type == 'js':
@@ -422,8 +449,8 @@ class RewriteInfo(object):
     def _resolve_text_type(self, text_type):
         mod = self.url_rewriter.wburl.mod
 
-        if mod == 'sw_' or mod == 'wkr_':
-            return None
+        if mod in WORKER_MODS:
+            return 'js-worker'
 
         if text_type == 'css' and mod == 'js_':
             text_type = 'css'
@@ -432,8 +459,8 @@ class RewriteInfo(object):
 
         # if html or no-content type, allow resolving on js, css,
         # or other templates
-        if text_type == 'guess-text':
-            if not is_js_or_css and mod not in ('if_', 'mp_', ''):
+        if text_type in ('guess-text', 'guess-html'):
+            if not is_js_or_css and mod not in ('fr_', 'if_', 'mp_', 'bn_', ''):
                 return None
 
         # if application/octet-stream binary, only resolve if in js/css content
@@ -449,6 +476,10 @@ class RewriteInfo(object):
         # check if doesn't start with a tag, then likely not html
         if self.TAG_REGEX.match(buff):
             return 'html'
+        # perform additional check to see if it has any html tags
+        elif text_type == 'guess-html' and not is_js_or_css:
+            if self.TAG_REGEX2.match(buff):
+                return 'html'
 
         if not is_js_or_css:
             return text_type
@@ -490,7 +521,7 @@ class RewriteInfo(object):
         return True
 
     def is_url_rw(self):
-        if self.url_rewriter.wburl.mod in ('id_', 'bn_', 'sw_', 'wkr_'):
+        if self.url_rewriter.wburl.mod in ('id_', 'bn_', 'wkrf_'):
             return False
 
         return True

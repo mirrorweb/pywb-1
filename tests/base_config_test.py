@@ -22,11 +22,16 @@ def fmod_sl(request):
 
 # ============================================================================
 class BaseConfigTest(BaseTestClass):
+    lint_app = True
+    extra_headers = {
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.108 Safari/537.36'
+    }
+
     @classmethod
     def get_test_app(cls, config_file, custom_config=None):
         config_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), config_file)
         app = FrontEndApp(config_file=config_file, custom_config=custom_config)
-        return app, webtest.TestApp(app)
+        return app, webtest.TestApp(app, lint=cls.lint_app)
 
     @classmethod
     def setup_class(cls, config_file, include_non_frame=True, custom_config=None):
@@ -60,20 +65,33 @@ class BaseConfigTest(BaseTestClass):
         assert resp.content_length > 0
 
     def get(self, url, fmod, *args, **kwargs):
+        self.__ensure_headers(kwargs)
         app = self.testapp if fmod else self.testapp_non_frame
         return app.get(url.format(fmod), *args, **kwargs)
 
     def post(self, url, fmod, *args, **kwargs):
+        self.__ensure_headers(kwargs)
         app = self.testapp if fmod else self.testapp_non_frame
         return app.post(url.format(fmod), *args, **kwargs)
 
     def post_json(self, url, fmod, *args, **kwargs):
+        self.__ensure_headers(kwargs)
         app = self.testapp if fmod else self.testapp_non_frame
         return app.post_json(url.format(fmod), *args, **kwargs)
 
     def head(self, url, fmod, *args, **kwargs):
+        self.__ensure_headers(kwargs)
         app = self.testapp if fmod else self.testapp_non_frame
         return app.head(url.format(fmod), *args, **kwargs)
+
+    def __ensure_headers(self, kwargs):
+        if 'headers' in kwargs:
+            headers = kwargs.get('headers')
+        else:
+            headers = kwargs['headers'] = {}
+
+        if isinstance(headers, dict) and 'User-Agent' not in headers:
+            headers['User-Agent'] = self.extra_headers['User-Agent']
 
 
 #=============================================================================

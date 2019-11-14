@@ -2,6 +2,9 @@ from six.moves.http_cookies import SimpleCookie, CookieError
 import six
 import re
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 #================================================================
 class WbUrlBaseCookieRewriter(object):
@@ -17,9 +20,8 @@ class WbUrlBaseCookieRewriter(object):
         cookie_str = self.REMOVE_EXPIRES.sub('', cookie_str)
         try:
             cookie = SimpleCookie(cookie_str)
-        except CookieError:
-            import traceback
-            traceback.print_exc()
+        except CookieError as e:
+            logger.info(e, exc_info=True)
             return results
 
         for name, morsel in six.iteritems(cookie):
@@ -39,10 +41,10 @@ class WbUrlBaseCookieRewriter(object):
              then assume its meant to be a prefix, and likely needed for
              other content.
              Set cookie with same prefix but for all common modifiers:
-             (mp_, js_, cs_, oe_, if_)
+             (mp_, js_, cs_, oe_, if_, sw_, wkrf_)
         """
         curr_mod = self.url_rewriter.wburl.mod
-        if curr_mod not in ('mp_', 'if_'):
+        if curr_mod not in ('mp_', 'if_', 'sw_'):
             return False
 
         if not morsel.get('httponly'):
@@ -52,7 +54,7 @@ class WbUrlBaseCookieRewriter(object):
         if not path or not path.endswith('/'):
             return False
 
-        for mod in ('mp_', 'cs_', 'js_', 'im_', 'oe_', 'if_'):
+        for mod in ('mp_', 'cs_', 'js_', 'im_', 'oe_', 'if_', 'sw_', 'wkrf_'):
             new_path = path.replace(curr_mod + '/', mod + '/')
             morsel['path'] = new_path
             results.append((header, morsel.OutputString()))

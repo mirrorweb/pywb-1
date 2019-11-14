@@ -126,7 +126,7 @@ class TestContentRewriter(object):
 
         headers, gen, is_rw = self.rewrite_record(headers, content, ts='201701mp_')
 
-        assert is_rw
+        assert is_rw == False
         assert ('Content-Type', 'text/html; charset=utf-8') in headers.headers
         assert b''.join(gen).decode('utf-8') == exp
 
@@ -235,24 +235,22 @@ class TestContentRewriter(object):
 
     def test_rewrite_sw_add_headers(self):
         headers = {'Content-Type': 'application/x-javascript'}
-        content = 'function() { location.href = "http://example.com/"; }'
+        content = "function() { location.href = 'http://example.com/'; }"
 
         headers, gen, is_rw = self.rewrite_record(headers, content, ts='201701sw_')
 
         assert ('Content-Type', 'application/x-javascript') in headers.headers
         assert ('Service-Worker-Allowed', 'http://localhost:8080/prefix/201701mp_/http://example.com/') in headers.headers
 
-        exp = 'function() { location.href = "http://example.com/"; }'
-        assert b''.join(gen).decode('utf-8') == exp
+        assert "self.importScripts('wombatWorkers.js');" in b''.join(gen).decode('utf-8')
 
     def test_rewrite_worker(self):
         headers = {'Content-Type': 'application/x-javascript'}
-        content = 'importScripts("http://example.com/js.js")'
+        content = "importScripts('http://example.com/js.js')"
 
         rwheaders, gen, is_rw = self.rewrite_record(headers, content, ts='201701wkr_')
 
-        exp = 'importScripts("http://example.com/js.js")'
-        assert b''.join(gen).decode('utf-8') == exp
+        assert "self.importScripts('wombatWorkers.js');" in b''.join(gen).decode('utf-8')
 
     def test_banner_only_no_cookie_rewrite(self):
         headers = {'Set-Cookie': 'foo=bar; Expires=Wed, 13 Jan 2021 22:23:01 GMT; Path=/',
@@ -284,12 +282,12 @@ class TestContentRewriter(object):
         headers, gen, is_rw = self.rewrite_record(headers, content, ts='201701mp_')
 
         mods = set()
-        assert len(headers.headers) == 6
+        assert len(headers.headers) == 8
         for name, value in headers.headers:
             assert name == 'Set-Cookie'
             mods.add(re.search('Path=/prefix/201701([^/]+)', value).group(1))
 
-        assert mods == {'mp_', 'cs_', 'js_', 'im_', 'oe_', 'if_'}
+        assert mods == {'mp_', 'cs_', 'js_', 'im_', 'oe_', 'if_', 'sw_', 'wkrf_'}
         assert is_rw == False
 
     def test_rewrite_http_cookie_no_all_mods_no_slash(self):
@@ -333,8 +331,18 @@ class TestContentRewriter(object):
 
         assert ('Content-Type', 'text/html; charset=utf-8') in headers.headers
 
-        assert is_rw == True
+        assert is_rw == False
         assert b''.join(gen) == content
+
+    def test_binary_wrong_content_type_html_rw(self):
+        headers = {'Content-Type': 'text/html; charset=utf-8'}
+        content = b'Hello <a href="/foo.html">link</a>'
+        headers, gen, is_rw = self.rewrite_record(headers, content, ts='201701mp_')
+
+        assert ('Content-Type', 'text/html; charset=utf-8') in headers.headers
+
+        assert is_rw
+        assert b''.join(gen) == b'Hello <a href="/prefix/201701/http://example.com/foo.html">link</a>'
 
     def test_binary_wrong_content_type_css(self):
         headers = {'Content-Type': 'text/css; charset=utf-8'}
@@ -449,7 +457,23 @@ class TestContentRewriter(object):
 
     def test_rewrite_js_as_json_generic_jsonp(self):
         headers = {'Content-Type': 'application/json'}
-        content = '/**/ jsonpCallbackABCDEF({"foo": "bar"});'
+        content = '/*abc*/ jsonpCallbackABCDEF({"foo": "bar"});'
+
+        headers, gen, is_rw = self.rewrite_record(headers, content, ts='201701js_',
+                                                  url='http://example.com/path/file?callback=jsonpCallback12345')
+
+        # content-type unchanged
+        assert ('Content-Type', 'application/json') in headers.headers
+
+        exp = 'jsonpCallback12345({"foo": "bar"});'
+        assert b''.join(gen).decode('utf-8') == exp
+
+    def test_rewrite_js_as_json_generic_jsonp_multiline_comment(self):
+        headers = {'Content-Type': 'application/json'}
+        content = """\
+// A comment
+// Another?
+jsonpCallbackABCDEF({"foo": "bar"});"""
 
         headers, gen, is_rw = self.rewrite_record(headers, content, ts='201701js_',
                                                   url='http://example.com/path/file?callback=jsonpCallback12345')
@@ -513,6 +537,24 @@ class TestContentRewriter(object):
         assert headers.headers == [('Content-Type', 'application/octet-stream')]
 
         assert b''.join(gen).decode('utf-8') == '{"ssid":"5678"}'
+
+    def test_rewrite_frameset_frame_content(self):
+        """Determines if the content rewriter correctly determines that HTML loaded via a frameset's frame,
+        frame's src url is rewritten with the **fr_** rewrite modifier, is content to be rewritten
+        """
+        headers = {'Content-Type': 'text/html; charset=UTF-8'}
+        prefix = 'http://localhost:8080/live/'
+        dt = '20190205180554%s'
+        content = '<!DOCTYPE html><head><link rel="icon" href="http://r-u-ins.tumblr.com/img/favicon/72.png" ' \
+                  'type="image/x-icon"></head>'
+        rw_headers, gen, is_rw = self.rewrite_record(headers, content, ts=dt % 'fr_',
+                                                     prefix=prefix,
+                                                     url='http://r-u-ins.tumblr.com/',
+                                                     is_live='1')
+        # is_rw should be true indicating the content was rewritten
+        assert is_rw
+        assert b''.join(gen).decode('utf-8') == content.replace('href="', 'href="%s%s' % (prefix, dt % 'oe_/'))
+        assert rw_headers.headers == [('Content-Type', 'text/html; charset=UTF-8')]
 
     def test_custom_live_only(self):
         headers = {'Content-Type': 'application/json'}

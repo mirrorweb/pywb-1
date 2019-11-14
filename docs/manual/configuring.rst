@@ -53,7 +53,7 @@ The default directory structure for a web archive is as follows::
         |
         +-- <coll name>
             |
-            +-- archives
+            +-- archive
             |     |
             |     +-- (WARC or ARC files here)
             |
@@ -382,6 +382,8 @@ The detected urls are loaded in the background using a web worker while the user
 
 To enable this functionality, add ``--enable-auto-fetch`` to the command-line or ``enable_auto_fetch: true`` to the root of the ``config.yaml``
 
+The auto-fetch system is provided as part of the :ref:`wombat`
+
 
 Auto-Indexing Mode
 ------------------
@@ -408,6 +410,23 @@ The auto-indexing mode can also be enabled via command-line by running ``wayback
 (If running pywb with uWSGI in multi-process mode, the auto-indexing is only run in a single worker to avoid race conditions and duplicate indexing)
 
 
+.. _wombat:
+
+Client-Side Rewriting System (wombat.js)
+----------------------------------------
+
+In addition to server-side rewriting, pywb includes a Javascript client-rewriting system.
+
+This system intercepts network traffic and emulates the correct JS environment expected by a replayed page.
+
+The auto-fetch system is also implemented as part of wombat.
+
+Wombat was integrated into pywb upto 2.2.x. Starting with 2.3, wombat has been spun off into its own
+standalone JS module.
+
+For more information on wombat.js and client-side rewriting, see the `wombat README <https://github.com/webrecorder/wombat/blob/master/README.md>`_
+
+
 .. _https-proxy:
 
 HTTP/S Proxy Mode
@@ -429,8 +448,24 @@ To enable proxy mode, the collection can be specified by running: ``wayback --pr
 
   proxy:
     coll: my-coll
-    
+
 For HTTP proxy access, this is all that is needed to use the proxy. If pywb is running on port 8080 on localhost, the following curl command should provide proxy access: ``curl -x "localhost:8080"  http://example.com/``
+
+
+Default Timestamp
+^^^^^^^^^^^^^^^^^
+
+The timestamp can also be optionally specified by running: ``wayback --proxy my-coll --proxy-default-timestamp 20181226010203`` or by specifying the config::
+
+  proxy:
+    coll: my-coll
+    default-timestamp: 20181226010203
+
+The ISO date format, eg. ``2018-12-26T01:02:03`` is also accepted.
+
+If the timestamp is omitted, proxy mode replay defaults to the latest capture.
+
+The timestamp can also be dynamically overriden per-request using the :ref:`memento-proxy`.
 
 
 Proxy Mode Rewriting
@@ -465,7 +500,6 @@ If omitted, the defaults for these options are::
      enable_banner: true
      enable_wombat: false
      enable_content_rewrite: true
-
 
 For example, to enable wombat rewriting but disable the banner, use the config::
 
@@ -530,6 +564,7 @@ The following are all the available proxy options -- only ``coll`` is required::
     recording: false
     enable_banner: true
     enable_content_rewrite: true
+    default_timestamp: ''
 
 The HTTP/S functionality is provided by the separate :mod:`wsgiprox` utility which provides HTTP/S proxy routing
 to any WSGI application.
