@@ -20,3 +20,4 @@ boto3
 gunicorn
 git+https://github.com/esnme/ultrajson.git
 pysocks
+py3amf
