@@ -14,3 +14,9 @@ portalocker
 wsgiprox>=1.5.1
 fakeredis<1.0
 tldextract
+certauth
+youtube-dl
+boto3
+gunicorn
+git+https://github.com/esnme/ultrajson.git
+pysocks
