@@ -17,3 +17,5 @@ enable_memento: true
 # Replay content in an iframe
 framed_replay: true
 
+# Permissions policy
+perms_policy: !!python/name:pywb.perms.sample_policy.perms_policy
