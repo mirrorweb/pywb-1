@@ -63,6 +63,7 @@ class WarcServer(BaseWarcServer):
         self.index_paths = self.init_paths('index_paths')
         self.archive_paths = self.init_paths('archive_paths', self.root_dir)
         self.acl_paths = self.init_paths('acl_paths')
+        self.perms_policy = self.config.get('perms_policy')
 
         self.default_access = self.config.get('default_access')
 
@@ -113,7 +114,8 @@ class WarcServer(BaseWarcServer):
 
         return DefaultResourceHandler(dir_source, self.archive_paths,
                                       rules_file=self.rules_file,
-                                      access_checker=access_checker)
+                                      access_checker=access_checker,
+                                      perms_policy=self.perms_policy)
 
     def list_fixed_routes(self):
         return list(self.fixed_routes.keys())
@@ -207,7 +209,8 @@ class WarcServer(BaseWarcServer):
 
         return DefaultResourceHandler(agg, archive_paths,
                                       rules_file=self.rules_file,
-                                      access_checker=access_checker)
+                                      access_checker=access_checker,
+                                      perms_policy=self.perms_policy)
 
     def init_sequence(self, coll_name, seq_config):
         if not isinstance(seq_config, list):

@@ -49,6 +49,7 @@ class IndexHandler(object):
         self.opts = opts or {}
         self.fuzzy = FuzzyMatcher(kwargs.get('rules_file'))
         self.access_checker = kwargs.get('access_checker')
+        self.perms_policy = kwargs.get('perms_policy')
 
     def get_supported_modes(self):
         return dict(modes=['list_sources', 'index'])
@@ -67,6 +68,9 @@ class IndexHandler(object):
 
         if self.access_checker:
             cdx_iter = self.access_checker(cdx_iter)
+
+        if self.perms_policy:
+            cdx_iter = self.perms_policy(cdx_iter, self.index_source, params)
 
         return cdx_iter
 
