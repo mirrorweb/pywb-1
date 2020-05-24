@@ -42,7 +42,7 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
-
+.idea
 .vagrant
 
 # Node
