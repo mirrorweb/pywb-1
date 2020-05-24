@@ -24,10 +24,12 @@ class TestWbIntegration(BaseConfigTest):
         assert resp.content_type == 'text/html'
         assert resp.status_int == 200
 
-    def test_pywb_invalid_path(self):
-        resp = self.testapp.head('/blah/', status=404)
+    def test_pywb_invalid_collection(self):
+        resp = self.testapp.get('/blah/http://example.com/', status=404)
         assert resp.content_type == 'text/html'
         assert resp.status_int == 404
+
+        assert 'Collection not found: <b>blah</b>' in resp.text
 
     def test_calendar_query(self):
         resp = self.testapp.get('/pywb/*/iana.org')
@@ -101,6 +103,7 @@ class TestWbIntegration(BaseConfigTest):
 
         assert '"20140127171238"' in resp.text, resp.text
         assert 'wombat.js' in resp.text
+        assert 'transclusions.js' in resp.text
         assert '_WBWombatInit' in resp.text, resp.text
         assert 'wbinfo.enable_auto_fetch = false;' in resp.text
         assert '/pywb/20140127171238{0}/http://www.iana.org/time-zones"'.format(fmod) in resp.text
@@ -285,6 +288,11 @@ class TestWbIntegration(BaseConfigTest):
         assert '"20140127171251"' in resp.text
         assert '/pywb/{0}http://www.iana.org/domains/example'.format(fmod_slash) in resp.text, resp.text
 
+    def test_replay_content_bad_status_text(self, fmod):
+        # test larger file, rewritten file (svg!)
+        resp = self.get('/pywb/20140127171238{0}/https://iana.org/bads', fmod)
+        assert resp.headers['Content-Length'] == str(len(resp.text))
+
     def test_replay_non_latest_content_location_ts(self, fmod):
         fmod_slash = fmod + '/' if fmod else ''
         resp = self.get('/pywb/{0}http://example.com/', fmod_slash)
@@ -386,7 +394,7 @@ class TestWbIntegration(BaseConfigTest):
         resp = self.post_json('/pywb/20140610001255{0}/http://httpbin.org/post?foo=bar', fmod, {'data': '^'}, status=404)
         assert resp.status_int == 404
 
-    def test_post_referer_redirect(self):
+    def test_post_referer_redirect(self, fmod):
         # allowing 307 redirects
         resp = self.post('/post', fmod,
                          {'foo': 'bar', 'test': 'abc'},
@@ -394,6 +402,13 @@ class TestWbIntegration(BaseConfigTest):
 
         assert resp.status_int == 307
         assert resp.headers['Location'].endswith('/pywb/2014{0}/http://httpbin.org/post'.format(fmod))
+
+    def test_get_referer_redirect(self, fmod):
+        resp = self.get('/get', fmod,
+                         headers=[('Referer', 'http://localhost:80/pywb/2014{0}/http://httpbin.org/foo'.format(fmod))])
+
+        assert resp.status_int == 307
+        assert resp.headers['Location'].endswith('/pywb/2014{0}/http://httpbin.org/get'.format(fmod))
 
     def _test_excluded_content(self):
         fmod_slash = fmod + '/' if fmod else ''
@@ -403,9 +418,12 @@ class TestWbIntegration(BaseConfigTest):
 
     def test_replay_not_found(self, fmod):
         fmod_slash = fmod + '/' if fmod else ''
-        resp = self.head('/pywb/{0}http://not-exist.example.com/', fmod_slash, status=404)
+        resp = self.get('/pywb/{0}http://not-exist.example.com/path?A=B', fmod_slash, status=404)
         assert resp.content_type == 'text/html'
         assert resp.status_int == 404
+
+        assert 'URL Not Found' in resp.text, resp.text
+        assert 'The url <b>http://not-exist.example.com/path?A=B</b> could not be found in this collection.' in resp.text
 
     def test_static_content(self):
         resp = self.testapp.get('/static/default_banner.css')
@@ -429,6 +447,8 @@ class TestWbIntegration(BaseConfigTest):
         resp = self.testapp.get('/static/notfound.css', status = 404)
         assert resp.status_int == 404
 
+        assert 'Static file not found: <b>notfound.css</b>' in resp.text
+
     def test_cdx_server_filters(self):
         resp = self.testapp.get('/pywb/cdx?url=http://www.iana.org/_css/2013.1/screen.css&filter=mime:warc/revisit&filter=filename:dupes.warc.gz')
         assert resp.content_type == 'text/x-cdxj'
@@ -450,7 +470,6 @@ class TestWbIntegration(BaseConfigTest):
         # verify orig filenames (2 revisits, one non)
         origfilenames = list(map(lambda cdx: cdx['orig.filename'], cdxs))
         assert origfilenames == ['iana.warc.gz', 'iana.warc.gz', '-']
-
 
     # surt() no longer errors on this in 0.3b
     #def test_error(self):

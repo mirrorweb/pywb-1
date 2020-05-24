@@ -1,5 +1,8 @@
 # Default Filters
 default_filters:
+    # limit to fuzzy match prefix results
+    fuzzy_search_limit: '100'
+
     # exts that should *not* be treated as files (ignore all query args)
     not_exts:
         - asp
@@ -163,7 +166,7 @@ rules:
             - match: 'Bootloader\.configurePage.*?;'
               replace: '/* {0} */'
 
-            - match: 'dash_manifest:"(.*",dash_prefetched_representation_ids:.*?])'
+            - match: 'dash_manifest"?:"(.*","?dash_prefetched_representation_ids"?:.*?])'
               group: 1
               function: 'pywb.rewrite.rewrite_dash:rewrite_fb_dash'
 
@@ -341,7 +344,7 @@ rules:
           - videoFileId
           - signature
 
-    - url_prefix: 'net,akamaized,gcs-vimeo)/'
+    - url_prefix: ['net,akamaized,gcs-vimeo)/', 'net,akamaized,vod)/']
 
       fuzzy_lookup:
         match: '([/\d]+\.mp4)$'

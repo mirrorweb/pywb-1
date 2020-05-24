@@ -283,6 +283,7 @@ class TestManagedColls(CollsDirMixin, BaseConfigTest):
 
         with open(banner_file, 'w+b') as fh:
             fh.write(b'<div>Custom Banner Here!</div>')
+            fh.write(b'\n{{ metadata | tojson }}')
 
     def test_add_custom_banner_replay(self, fmod):
         resp = self.get('/test/20140103030321/http://example.com/?example=1', fmod)
@@ -314,6 +315,13 @@ class TestManagedColls(CollsDirMixin, BaseConfigTest):
         assert 'overriden search page: ' in resp.text
         assert '"some":"value"' in resp.text
 
+    def test_replay_banner_metadata(self, fmod):
+        """ Test adding metadata in replay banner (both framed and non-frame)
+        """
+        resp = self.get('/test/20140103030321{0}/http://example.com/?example=1', fmod)
+        assert '<div>Custom Banner Here!</div>' in resp.text
+        assert '"some":"value"' in resp.text
+
     def test_more_custom_templates_replay(self, fmod):
         resp = self.get('/test/20140103030321{0}/http://example.com/?example=1', fmod)
         assert resp.status_int == 200
@@ -341,14 +349,14 @@ class TestManagedColls(CollsDirMixin, BaseConfigTest):
 
         with open(filename, 'r+b') as fh:
             buf = fh.read()
-            buf = buf.replace(b'</html>', b'Custom Test Homepage</html>')
+            buf = buf.replace(b'Pywb Wayback Machine', b'Custom Test Homepage')
             fh.seek(0)
             fh.write(buf)
 
         resp = self.testapp.get('/')
         resp.charset = 'utf-8'
         assert resp.content_type == 'text/html'
-        assert 'Custom Test Homepage</html>' in resp.text, resp.text
+        assert 'Custom Test Homepage' in resp.text, resp.text
 
     @patch('pywb.manager.manager.get_input', lambda x: 'y')
     def test_add_template_input_yes(self):

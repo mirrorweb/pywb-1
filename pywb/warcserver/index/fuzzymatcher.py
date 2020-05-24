@@ -38,6 +38,8 @@ class FuzzyMatcher(object):
 
         self.default_filters = config.get('default_filters')
 
+        self.fuzzy_search_limit = self.default_filters.get('fuzzy_search_limit')
+
         self.url_normalize_rx = [(re.compile(rule['match']), rule['replace']) for rule in self.default_filters['url_normalize']]
 
     def parse_fuzzy_rule(self, rule):
@@ -82,7 +84,7 @@ class FuzzyMatcher(object):
                 m = rule.regex.search(urlkey)
                 groups = m and m.groups()
 
-            if not groups:
+            if groups is None:
                 continue
 
             matched_rule = rule
@@ -97,7 +99,7 @@ class FuzzyMatcher(object):
 
         # support matching w/o query if no additional filters
         # don't include trailing '?' if no filters and replace_after '?'
-        no_filters = (filters == {'urlkey:'}) and (matched_rule.replace_after == '?')
+        no_filters = (not filters or filters == {'urlkey:'}) and (matched_rule.replace_after == '?')
 
         inx = url.find(matched_rule.replace_after)
         if inx > 0:
@@ -120,6 +122,9 @@ class FuzzyMatcher(object):
                         'matchType': matched_rule.match_type,
                         'filter': filters,
                         'is_fuzzy': '1'}
+
+        if self.fuzzy_search_limit:
+            fuzzy_params['limit'] = self.fuzzy_search_limit
 
         for key in iterkeys(params):
             if key not in self.FUZZY_SKIP_PARAMS:
@@ -188,6 +193,11 @@ class FuzzyMatcher(object):
     def match_general_fuzzy_query(self, url, urlkey, cdx, rx_cache):
         check_query = False
         url_no_query, ext = self.get_ext(url)
+
+        # don't fuzzy match to 204
+        if cdx.get('status') == '204':
+            if '__pywb_method=options' in cdx['urlkey']:
+                return False
 
         # check ext
         if ext and ext not in self.default_filters['not_exts']:

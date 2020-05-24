@@ -36,8 +36,9 @@ ORIG_FILENAME = 'orig.filename'
 
 #=================================================================
 class CDXException(WbException):
-    def status(self):
-        return '400 Bad Request'
+    @property
+    def status_code(self):
+        return 400
 
 
 #=================================================================
@@ -120,7 +121,7 @@ class CDXObject(OrderedDict):
         if fields[-1].startswith(b'{'):
             self[URLKEY] = to_native_str(fields[0], 'utf-8')
             self[TIMESTAMP] = to_native_str(fields[1], 'utf-8')
-            json_fields = json_decode(to_native_str(fields[-1], 'utf-8'))
+            json_fields = self.json_decode(to_native_str(fields[-1], 'utf-8'))
             for n, v in six.iteritems(json_fields):
                 n = to_native_str(n, 'utf-8')
                 n = self.CDX_ALT_FIELDS.get(n, n)
@@ -132,7 +133,7 @@ class CDXObject(OrderedDict):
                         v = quote(v.encode('utf-8'), safe=':/')
 
                 if n != 'filename':
-                    v = to_native_str(v, 'utf-8')
+                    v = to_native_str(v, 'utf-8') or v
 
                 self[n] = v
 
@@ -180,10 +181,13 @@ class CDXObject(OrderedDict):
         :param fields: list of field names to output.
         """
         if fields is None:
-            return str(self) + '\n'
+            if self.cdxline:
+                return to_native_str(self.cdxline, 'utf-8') + '\n'
+
+            fields = six.iterkeys(self)
 
         try:
-            result = ' '.join(str(self[x]) for x in fields) + '\n'
+            result = ' '.join(str(self.get(x, '-')) for x in fields) + '\n'
         except KeyError as ke:
             msg = 'Invalid field "{0}" found in fields= argument'
             msg = msg.format(str(ke))
@@ -244,6 +248,10 @@ class CDXObject(OrderedDict):
 
         res = (self._cached_json <= other._cached_json)
         return res
+
+    @classmethod
+    def json_decode(cls, string):
+        return json_decode(string, object_pairs_hook=OrderedDict)
 
 
 #=================================================================
