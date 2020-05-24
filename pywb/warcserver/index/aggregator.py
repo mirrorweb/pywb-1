@@ -59,13 +59,6 @@ class BaseAggregator(object):
             if not cdx.get('url'):
                 return cdx
 
-            if cdx.get('source'):
-                cdx['source'] = name + ':' + cdx['source']
-            else:
-                cdx['source'] = name
-
-            cdx['source-coll'] = self._get_coll(name)
-
             return cdx
 
         if params.get('nosource') != 'true':

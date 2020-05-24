@@ -42,7 +42,7 @@ class IndexHandler(object):
         'link': to_link,
     }
 
-    DEF_OUTPUT = 'cdxj'
+    DEF_OUTPUT = 'text'
 
     def __init__(self, index_source, opts=None, *args, **kwargs):
         self.index_source = index_source

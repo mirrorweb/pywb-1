@@ -11,23 +11,6 @@ def warcserver(args=None):
                          default_port=8070,
                          desc='pywb WarcServer').run()
 
-
-#=============================================================================
-def wayback(args=None):
-    """Utility function for starting pywb's Wayback Machine implementation"""
-    return WaybackCli(args=args,
-                      default_port=8080,
-                      desc='pywb Wayback Machine Server').run()
-
-
-#=============================================================================
-def live_rewrite_server(args=None):
-    """Utility function for starting pywb's Wayback Machine implementation in live mode"""
-    return LiveCli(args=args,
-                   default_port=8090,
-                   desc='pywb Live Rewrite Proxy Server').run()
-
-
 #=============================================================================
 class BaseCli(object):
     """Base CLI class that provides the initial arg parser setup,
@@ -129,37 +112,6 @@ class BaseCli(object):
 
 
 #=============================================================================
-class ReplayCli(BaseCli):
-    """CLI class that adds the cli functionality specific to starting pywb's Wayback Machine implementation"""
-
-    def _extend_parser(self, parser):
-        parser.add_argument('-a', '--autoindex', action='store_true',
-                            help='Enable auto-indexing')
-        parser.add_argument('--auto-interval', type=int, default=30,
-                            help='Auto-indexing interval (default 30 seconds)')
-
-        parser.add_argument('--all-coll', help='Set "all" collection')
-
-        help_dir='Specify root archive dir (default is current working directory)'
-        parser.add_argument('-d', '--directory', help=help_dir)
-
-    def load(self):
-        super(ReplayCli, self).load()
-
-        if self.r.all_coll:
-            if 'collections' not in self.extra_config:
-                self.extra_config['collections'] = {}
-            self.extra_config['collections'][self.r.all_coll] = '$all'
-
-        if self.r.autoindex:
-            self.extra_config['autoindex'] = self.r.auto_interval
-
-        import os
-        if self.r.directory:  #pragma: no cover
-            os.chdir(self.r.directory)
-
-
-#=============================================================================
 class WarcServerCli(BaseCli):
     """CLI class for starting a WarcServer"""
 
@@ -171,29 +123,5 @@ class WarcServerCli(BaseCli):
 
 
 #=============================================================================
-class WaybackCli(ReplayCli):
-    """CLI class for starting the pywb's implementation of the Wayback Machine"""
-
-    def load(self):
-        from pywb.apps.frontendapp import FrontEndApp
-
-        super(WaybackCli, self).load()
-        return FrontEndApp(custom_config=self.extra_config)
-
-
-#=============================================================================
-class LiveCli(BaseCli):
-    """CLI class for starting pywb in replay server in live mode"""
-
-    def load(self):
-        from pywb.apps.frontendapp import FrontEndApp
-
-        self.r.live = True
-
-        super(LiveCli, self).load()
-        return FrontEndApp(config_file=None, custom_config=self.extra_config)
-
-
-#=============================================================================
 if __name__ == "__main__":
-    wayback()
+    warcserver()
