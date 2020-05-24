@@ -2,7 +2,7 @@ six
 warcio>=1.7.1
 requests
 redis<3.0
-jinja2
+jinja2<3.0.0
 surt>=0.3.1
 brotlipy
 pyyaml
@@ -14,10 +14,4 @@ portalocker
 wsgiprox>=1.5.1
 fakeredis<1.0
 tldextract
-certauth
-youtube-dl
-boto3
-gunicorn
-git+https://github.com/esnme/ultrajson.git
-pysocks
-py3amf
+babel
