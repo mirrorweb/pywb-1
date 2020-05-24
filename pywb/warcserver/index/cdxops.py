@@ -325,9 +325,6 @@ def cdx_resolve_revisits(cdx_iter):
     originals = {}
 
     for cdx in cdx_iter:
-        if all([cdx.get('orig.' + field) for field in ORIG_TUPLE]):
-            yield cdx
-            continue
         is_revisit = cdx.is_revisit()
 
         digest = cdx.get(DIGEST)

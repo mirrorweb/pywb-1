@@ -21,7 +21,7 @@ build:
 	@DOCKER_BUILDKIT=1 docker build -t warcserver:${TAG} . --ssh default
 
 run:
-	@docker run -v $(pwd)/config.yaml:/opt/mw/config.yaml -p 5005 -it warcserver:${TAG}
+	@docker run -v `pwd`/config.yaml:/opt/mw/config.yaml -p 5005 -it warcserver:${TAG}
 
 clean:
 	@rm -rf .venv

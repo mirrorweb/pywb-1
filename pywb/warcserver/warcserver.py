@@ -19,7 +19,6 @@ from pywb.warcserver.access_checker import AccessChecker, CacheDirectoryAccessSo
 from pywb import DEFAULT_CONFIG
 
 from six import iteritems, iterkeys, itervalues
-from six.moves import zip
 import os
 
 

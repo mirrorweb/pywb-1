@@ -1,19 +1,366 @@
-# pywb config file
-# ========================================
-#
-
 collections:
-    all: $all
-    pywb:
-        index_paths: ./sample_archive/cdx/
-        archive_paths: ./sample_archive/warcs/
+    pop:
+    3f4efb2d-061a-11ea-9edf-0af36ad4b9a4: # Dimensional Fund Advisors
+        index_group:
+            zipnum: /mnt/collections/live/enterprise/3f4efb2d-061a-11ea-9edf-0af36ad4b9a4/full-zipnum/all.idx
+            cdx: /mnt/collections/live/3f4efb2d-061a-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives/3f4efb2d-061a-11ea-9edf-0af36ad4b9a4/qa/
 
-# Settings for each collection
-use_js_obj_proxy: true
+    d5e42045-ea78-4486-b468-d5f47045fdf0: # University of Westminster
+        index_paths: /mnt/collections/live/d5e42045-ea78-4486-b468-d5f47045fdf0/qa/
+        archive_paths: s3://mw-client-live-webarchives/d5e42045-ea78-4486-b468-d5f47045fdf0/qa/
 
-# Memento support, enable
+    39dda9e6-6e7b-11ea-bf45-0af36ad4b9a4: # PanSurg
+        index_paths: /mnt/collections/live/39dda9e6-6e7b-11ea-bf45-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives/39dda9e6-6e7b-11ea-bf45-0af36ad4b9a4/qa/
+
+    0dfa3590-a88b-45f4-94da-6978a1586645: # Welsh Government
+        index_group:
+            full_zipnum: /mnt/collections/live/enterprise/0dfa3590-a88b-45f4-94da-6978a1586645/full-zipnum/all.idx
+            staging_zipnum: /mnt/collections/live/enterprise/0dfa3590-a88b-45f4-94da-6978a1586645/staging-zipnum/all.idx
+            cdx: /mnt/collections/live/0dfa3590-a88b-45f4-94da-6978a1586645/qa/
+        archive_paths: s3://mw-wales-live-webarchives/0dfa3590-a88b-45f4-94da-6978a1586645/qa/
+
+    50c71bb0-e45d-4996-8b3b-c7051a0dac8e: # Tesco Bank
+        index_paths: /mnt/collections/live/50c71bb0-e45d-4996-8b3b-c7051a0dac8e/qa/
+        archive_paths: s3://mw-client-live-webarchives/50c71bb0-e45d-4996-8b3b-c7051a0dac8e/qa/
+
+    6c0a0edb-6256-40b1-b2b6-ef728bfff86f: # CITB
+        index_paths: /mnt/collections/live/6c0a0edb-6256-40b1-b2b6-ef728bfff86f/qa/
+        archive_paths: s3://mw-client-live-webarchives/6c0a0edb-6256-40b1-b2b6-ef728bfff86f/qa/
+
+    998834af-f2bb-49cc-bda0-f923b6a02c27: #Baillie Gifford
+        index_group:
+            zipnum: /mnt/collections/live/enterprise/998834af-f2bb-49cc-bda0-f923b6a02c27/all.idx
+            cdx: /mnt/collections/live/998834af-f2bb-49cc-bda0-f923b6a02c27/qa/
+        archive_paths: s3://mw-client-live-webarchives/998834af-f2bb-49cc-bda0-f923b6a02c27/qa/
+
+    b15a061f-3a29-43c3-9ad3-d24c340dfa50: # Liontrust
+        index_paths: /mnt/collections/live/b15a061f-3a29-43c3-9ad3-d24c340dfa50/qa/
+        archive_paths: s3://mw-client-live-webarchives/b15a061f-3a29-43c3-9ad3-d24c340dfa50/qa/
+
+    f565a3d4-3229-11ea-9edf-0af36ad4b9a4: # AXA plc
+        index_paths: /mnt/collections/live/f565a3d4-3229-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives/f565a3d4-3229-11ea-9edf-0af36ad4b9a4/qa/
+
+    bb5cc6dc-8b4a-4275-b659-529babebcc08: # UNHCR Records and Archives Section
+        index_paths: /mnt/collections/live/bb5cc6dc-8b4a-4275-b659-529babebcc08/qa/
+        archive_paths: s3://mw-unhcr-live-webarchives-qa/webarchives/
+
+    cb070482-ae05-4dd7-93c4-73b76aac79f9: # CBC Canada
+        index_group:
+            zipnum: /mnt/collections/live/enterprise/cb070482-ae05-4dd7-93c4-73b76aac79f9/all.idx
+            cdx: /mnt/collections/live/cb070482-ae05-4dd7-93c4-73b76aac79f9/qa/
+        archive_paths: s3://mw-client-live-webarchives/cb070482-ae05-4dd7-93c4-73b76aac79f9/qa/
+
+    d289c3f8-fcfe-4838-9a84-b85ae63eb0ec: #Archover
+        index_group:
+            zipnum: /mnt/collections/live/enterprise/d289c3f8-fcfe-4838-9a84-b85ae63eb0ec/all.idx
+            cdx: /mnt/collections/live/d289c3f8-fcfe-4838-9a84-b85ae63eb0ec/qa/
+        archive_paths: s3://mw-client-live-webarchives/d289c3f8-fcfe-4838-9a84-b85ae63eb0ec/qa/
+
+    e7266d40-953e-4f86-af30-9969700329a9: #Pernod Ricard
+        index_group:
+            zipnum: /mnt/collections/live/enterprise/e7266d40-953e-4f86-af30-9969700329a9/all.idx
+            cdx: /mnt/collections/live/e7266d40-953e-4f86-af30-9969700329a9/qa/
+        archive_paths: s3://mw-client-live-webarchives/e7266d40-953e-4f86-af30-9969700329a9/qa/
+
+    ec3fc60a-5371-49d0-9e17-f3029d4169e3: # BBC
+        index_paths: /mnt/collections/live/ec3fc60a-5371-49d0-9e17-f3029d4169e3/qa/
+        archive_paths: s3://mw-client-live-webarchives/ec3fc60a-5371-49d0-9e17-f3029d4169e3/qa/
+
+# ==== Zurich is in an Enterprise Data AWS Account ====
+
+    364e1061-51df-427d-ab9d-c7d5ba3aa600: # Zurich UK
+        index_group:
+            zipnum: /mnt/collections/live/enterprise/364e1061-51df-427d-ab9d-c7d5ba3aa600/all.idx
+            cdx: /mnt/collections/live/364e1061-51df-427d-ab9d-c7d5ba3aa600/qa/
+        archive_paths: s3://mw-zurich-live-webarchives/364e1061-51df-427d-ab9d-c7d5ba3aa600/qa/
+
+    b941f707-96f7-4ff9-8abf-8ec60e66bb3a: # Cardiff University:
+        index_paths: /mnt/collections/live/b941f707-96f7-4ff9-8abf-8ec60e66bb3a/qa/
+        archive_paths: s3://mw-client-live-webarchives/b941f707-96f7-4ff9-8abf-8ec60e66bb3a/qa/
+
+    a7b3630f-36d8-11ea-9edf-0af36ad4b9a4: # PIMFA Corporate:
+        index_paths: /mnt/collections/live/a7b3630f-36d8-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives/a7b3630f-36d8-11ea-9edf-0af36ad4b9a4/qa/
+
+    fd2e83e4-7eec-494a-97cc-7cab525aec37: # Mirrorweb
+        index_paths: /mnt/collections/live/fd2e83e4-7eec-494a-97cc-7cab525aec37/qa/
+        archive_paths: s3://mw-client-live-webarchives/fd2e83e4-7eec-494a-97cc-7cab525aec37/qa/
+
+    70b1adb8-9f83-422c-91a9-df3c029b9231: # Zurich Group
+        index_group:
+            zipnum: /mnt/collections/live/enterprise/70b1adb8-9f83-422c-91a9-df3c029b9231/all.idx
+            cdx: /mnt/collections/live/70b1adb8-9f83-422c-91a9-df3c029b9231/qa/
+        archive_paths: s3://mw-zurich-live-webarchives/70b1adb8-9f83-422c-91a9-df3c029b9231/qa/
+        
+#### DEMO #####
+    95380187-ed7c-4eb2-b20e-8eee61f0021e: # Transport for London
+        index_paths: /mnt/collections/demo/95380187-ed7c-4eb2-b20e-8eee61f0021e/qa/
+        archive_paths: s3://mw-client-live-webarchives/95380187-ed7c-4eb2-b20e-8eee61f0021e/qa/
+
+    756fb753-ff03-11e9-9edf-0af36ad4b9a4: # PIMFA
+        index_paths: /mnt/collections/demo/756fb753-ff03-11e9-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/756fb753-ff03-11e9-9edf-0af36ad4b9a4/qa/
+
+    9cacac8a-684d-4eb3-afe7-27c598f8c1b1: # SMBC - Chris
+        index_paths: /mnt/collections/demo/9cacac8a-684d-4eb3-afe7-27c598f8c1b1/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/9cacac8a-684d-4eb3-afe7-27c598f8c1b1/qa/
+
+    1862e688-f310-46f9-adc3-4f55edcce53d: # Triple Point
+        index_paths: /mnt/collections/demo/1862e688-f310-46f9-adc3-4f55edcce53d/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/1862e688-f310-46f9-adc3-4f55edcce53d/qa/
+
+    0ef9105d-f4e8-11e9-9edf-0af36ad4b9a4: # Walter Nagel
+        index_paths: /mnt/collections/demo/0ef9105d-f4e8-11e9-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/0ef9105d-f4e8-11e9-9edf-0af36ad4b9a4/qa/
+
+    0f71551b-060f-11ea-9edf-0af36ad4b9a4: # Nuveen
+        index_paths: /mnt/collections/demo/0f71551b-060f-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/0f71551b-060f-11ea-9edf-0af36ad4b9a4/qa/
+
+    8963aa4c-0a08-11ea-9edf-0af36ad4b9a4: # HSBC
+        index_paths: /mnt/collections/demo/8963aa4c-0a08-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/8963aa4c-0a08-11ea-9edf-0af36ad4b9a4/qa/
+
+    36184be9-11d8-11ea-9edf-0af36ad4b9a4: # Investec Asset Management - Becoming Ninety One
+        index_paths: /mnt/collections/demo/36184be9-11d8-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/36184be9-11d8-11ea-9edf-0af36ad4b9a4/qa/
+
+    1870d2a9-1779-11ea-9edf-0af36ad4b9a4: # origin Investments
+        index_paths: /mnt/collections/demo/1870d2a9-1779-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/1870d2a9-1779-11ea-9edf-0af36ad4b9a4/qa/
+
+    67f0e0d2-1a65-11ea-9edf-0af36ad4b9a4: # Absolut
+        index_paths: /mnt/collections/demo/67f0e0d2-1a65-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/67f0e0d2-1a65-11ea-9edf-0af36ad4b9a4/qa/
+
+    a4bb84fe-1b65-11ea-9edf-0af36ad4b9a4: # Lloyds
+        index_paths: /mnt/collections/demo/a4bb84fe-1b65-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/a4bb84fe-1b65-11ea-9edf-0af36ad4b9a4/qa/
+
+    5d1e1924-1b71-11ea-9edf-0af36ad4b9a4: # Nationwide
+        index_paths: /mnt/collections/demo/5d1e1924-1b71-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/5d1e1924-1b71-11ea-9edf-0af36ad4b9a4/qa/
+
+    fea77cf6-1b60-11ea-9edf-0af36ad4b9a4: # Port Sunlight
+        index_paths: /mnt/collections/demo/fea77cf6-1b60-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/fea77cf6-1b60-11ea-9edf-0af36ad4b9a4/qa/
+
+    dea23f85-2011-11ea-9edf-0af36ad4b9a4: # Canada Life
+        index_paths: /mnt/collections/demo/dea23f85-2011-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/dea23f85-2011-11ea-9edf-0af36ad4b9a4/qa/
+
+    7c4b0400-2015-11ea-9edf-0af36ad4b9a4: # Bank Of China
+        index_paths: /mnt/collections/demo/7c4b0400-2015-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/7c4b0400-2015-11ea-9edf-0af36ad4b9a4/qa/
+
+    d5bc1f3c-32f1-11ea-9edf-0af36ad4b9a4: # Devises
+        index_paths: /mnt/collections/demo/d5bc1f3c-32f1-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/d5bc1f3c-32f1-11ea-9edf-0af36ad4b9a4/qa/
+
+    265393fc-3780-11ea-9edf-0af36ad4b9a4: # Tasker Insurance
+        index_paths: /mnt/collections/demo/265393fc-3780-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/265393fc-3780-11ea-9edf-0af36ad4b9a4/qa/
+
+    f1faf102-3850-11ea-9edf-0af36ad4b9a4: # Gain
+        index_paths: /mnt/collections/demo/f1faf102-3850-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/f1faf102-3850-11ea-9edf-0af36ad4b9a4/qa/
+
+    86ed1d1b-3c92-11ea-9edf-0af36ad4b9a4: # Lending Stream
+        index_paths: /mnt/collections/demo/86ed1d1b-3c92-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/86ed1d1b-3c92-11ea-9edf-0af36ad4b9a4/qa/
+
+    9a87579d-3d31-11ea-9edf-0af36ad4b9a4: # First Federal Bank and Trust
+        index_paths: /mnt/collections/demo/9a87579d-3d31-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/9a87579d-3d31-11ea-9edf-0af36ad4b9a4/qa/
+
+    8406a52e-3dd8-11ea-9edf-0af36ad4b9a4: # University of the Arts London
+        index_paths: /mnt/collections/demo/8406a52e-3dd8-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/8406a52e-3dd8-11ea-9edf-0af36ad4b9a4/qa/
+
+    fa8ad13b-3dd3-11ea-9edf-0af36ad4b9a4: # NHBC
+        index_paths: /mnt/collections/demo/fa8ad13b-3dd3-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/fa8ad13b-3dd3-11ea-9edf-0af36ad4b9a4/qa/
+
+    e10b8790-3e8b-11ea-9edf-0af36ad4b9a4: # Goodwin Barratt
+        index_paths: /mnt/collections/demo/e10b8790-3e8b-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/e10b8790-3e8b-11ea-9edf-0af36ad4b9a4/qa/
+
+    ef2c8bb5-3ec3-11ea-9edf-0af36ad4b9a4: # Aon
+        index_paths: /mnt/collections/demo/ef2c8bb5-3ec3-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/ef2c8bb5-3ec3-11ea-9edf-0af36ad4b9a4/qa/
+
+    9aa18bd6-483e-11ea-9edf-0af36ad4b9a4: # Close Brothers
+        index_paths: /mnt/collections/demo/9aa18bd6-483e-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/9aa18bd6-483e-11ea-9edf-0af36ad4b9a4/qa/
+
+    c5193641-4839-11ea-9edf-0af36ad4b9a4: # University of New England
+        index_paths: /mnt/collections/demo/c5193641-4839-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/c5193641-4839-11ea-9edf-0af36ad4b9a4/qa/
+
+    0f273895-48d5-11ea-9edf-0af36ad4b9a4: # Sandbox II
+        index_paths: /mnt/collections/demo/0f273895-48d5-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/0f273895-48d5-11ea-9edf-0af36ad4b9a4/qa/
+
+    a0b376be-532f-11ea-9edf-0af36ad4b9a4: # Alere
+        index_paths: /mnt/collections/demo/a0b376be-532f-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/a0b376be-532f-11ea-9edf-0af36ad4b9a4/qa/
+
+    0c717545-523a-11ea-9edf-0af36ad4b9a4: # fefundinfo
+        index_paths: /mnt/collections/demo/0c717545-523a-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/0c717545-523a-11ea-9edf-0af36ad4b9a4/qa/
+
+    1142bde2-587b-11ea-9edf-0af36ad4b9a4: # Sterling capital
+        index_paths: /mnt/collections/demo/1142bde2-587b-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/1142bde2-587b-11ea-9edf-0af36ad4b9a4/qa/
+
+    1497db6d-58a7-11ea-9edf-0af36ad4b9a4: # Ampersand
+        index_paths: /mnt/collections/demo/1497db6d-58a7-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/1497db6d-58a7-11ea-9edf-0af36ad4b9a4/qa/
+
+    e22dfc0e-51a3-11ea-9edf-0af36ad4b9a4: # Quilter
+        index_paths: /mnt/collections/demo/e22dfc0e-51a3-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/e22dfc0e-51a3-11ea-9edf-0af36ad4b9a4/qa/
+
+    d154688c-5c8f-11ea-9edf-0af36ad4b9a4: # Morgan Creek
+        index_paths: /mnt/collections/demo/d154688c-5c8f-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/d154688c-5c8f-11ea-9edf-0af36ad4b9a4/qa/
+
+    2ad1a63e-5d43-11ea-9edf-0af36ad4b9a4: # CAPTRUST Financial Advisors
+        index_paths: /mnt/collections/demo/2ad1a63e-5d43-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/2ad1a63e-5d43-11ea-9edf-0af36ad4b9a4/qa/
+
+    2a411cd9-5c9e-11ea-9edf-0af36ad4b9a4: # Capital Investment Companies
+        index_paths: /mnt/collections/demo/2a411cd9-5c9e-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/2a411cd9-5c9e-11ea-9edf-0af36ad4b9a4/qa/
+
+    309d3bc8-5d50-11ea-9edf-0af36ad4b9a4: # Oracle Finance
+        index_paths: /mnt/collections/demo/309d3bc8-5d50-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/309d3bc8-5d50-11ea-9edf-0af36ad4b9a4/qa/
+
+    8f2dc1f7-f1b2-11e9-9edf-0af36ad4b9a4: # TSB
+        index_paths: /mnt/collections/demo/8f2dc1f7-f1b2-11e9-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/8f2dc1f7-f1b2-11e9-9edf-0af36ad4b9a4/qa/
+
+    3817fd68-6224-11ea-9089-0af36ad4b9a4: # Amherst Pierpont
+        index_paths: /mnt/collections/demo/3817fd68-6224-11ea-9089-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/3817fd68-6224-11ea-9089-0af36ad4b9a4/qa/
+
+    c849baa9-62c0-11ea-bf45-0af36ad4b9a4: # SPB
+        index_paths: /mnt/collections/demo/c849baa9-62c0-11ea-bf45-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/c849baa9-62c0-11ea-bf45-0af36ad4b9a4/qa/
+
+    4c0d4620-62f2-11ea-bf45-0af36ad4b9a4: # Open Money
+        index_paths: /mnt/collections/demo/4c0d4620-62f2-11ea-bf45-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/4c0d4620-62f2-11ea-bf45-0af36ad4b9a4/qa/
+
+    1b300da5-62d1-11ea-bf45-0af36ad4b9a4: # Walter Nagel II
+        index_paths: /mnt/collections/demo/1b300da5-62d1-11ea-bf45-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/1b300da5-62d1-11ea-bf45-0af36ad4b9a4/qa/
+
+    6b2ffbb1-6439-11ea-bf45-0af36ad4b9a4: # Hartree Partners
+        index_paths: /mnt/collections/demo/6b2ffbb1-6439-11ea-bf45-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/6b2ffbb1-6439-11ea-bf45-0af36ad4b9a4/qa/
+
+    25bfc05e-174e-11ea-9edf-0af36ad4b9a4: # ETHZ
+        index_paths: /mnt/collections/demo/25bfc05e-174e-11ea-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/25bfc05e-174e-11ea-9edf-0af36ad4b9a4/qa/
+
+    5850d0d1-6ab3-11ea-bf45-0af36ad4b9a4: # Aschaffenburg
+        index_paths: /mnt/collections/demo/5850d0d1-6ab3-11ea-bf45-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/5850d0d1-6ab3-11ea-bf45-0af36ad4b9a4/qa/
+
+    8b2125d3-733a-11ea-bf45-0af36ad4b9a4: # Marshall Sterling Investments
+        index_paths: /mnt/collections/demo/8b2125d3-733a-11ea-bf45-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/8b2125d3-733a-11ea-bf45-0af36ad4b9a4/qa/
+
+    ad4e716a-77e0-11ea-bf45-0af36ad4b9a4: # York Uni
+        index_paths: /mnt/collections/demo/ad4e716a-77e0-11ea-bf45-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/ad4e716a-77e0-11ea-bf45-0af36ad4b9a4/qa/
+
+    a00a26fb-78ba-11ea-a740-0a2c1c4a8234: # BBC 2020
+        index_paths: /mnt/collections/demo/a00a26fb-78ba-11ea-a740-0a2c1c4a8234/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/a00a26fb-78ba-11ea-a740-0a2c1c4a8234/qa/
+
+    ab9bd5d9-80dc-11ea-a740-0a2c1c4a8234: # Artivest
+        index_paths: /mnt/collections/demo/ab9bd5d9-80dc-11ea-a740-0a2c1c4a8234/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/ab9bd5d9-80dc-11ea-a740-0a2c1c4a8234/qa/
+
+    6f31ee4d-808d-11ea-a740-0a2c1c4a8234: # University of East Anglia
+        index_paths: /mnt/collections/demo/6f31ee4d-808d-11ea-a740-0a2c1c4a8234/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/6f31ee4d-808d-11ea-a740-0a2c1c4a8234/qa/
+
+    964763ee-83f4-11ea-a740-0a2c1c4a8234: # Domestic and General
+        index_paths: /mnt/collections/demo/964763ee-83f4-11ea-a740-0a2c1c4a8234/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/964763ee-83f4-11ea-a740-0a2c1c4a8234/qa/
+
+    0e52c930-8406-11ea-a740-0a2c1c4a8234: # Rhode Island School of Design
+        index_paths: /mnt/collections/demo/0e52c930-8406-11ea-a740-0a2c1c4a8234/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/0e52c930-8406-11ea-a740-0a2c1c4a8234/qa/
+
+    e84a3b9b-8489-11ea-a740-0a2c1c4a8234: # Selina Finance
+        index_paths: /mnt/collections/demo/e84a3b9b-8489-11ea-a740-0a2c1c4a8234/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/e84a3b9b-8489-11ea-a740-0a2c1c4a8234/qa/
+
+    20d2d52e-84bc-11ea-a740-0a2c1c4a8234: # Tu-Ilmenau
+        index_paths: /mnt/collections/demo/20d2d52e-84bc-11ea-a740-0a2c1c4a8234/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/20d2d52e-84bc-11ea-a740-0a2c1c4a8234/qa/
+
+    0f5e609a-fb52-11e9-9edf-0af36ad4b9a4: # MW Test Org
+        index_paths: /mnt/collections/demo/0f5e609a-fb52-11e9-9edf-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/0f5e609a-fb52-11e9-9edf-0af36ad4b9a4/qa/
+
+    4e19d236-63b0-11ea-bf45-0af36ad4b9a4: # Example Company - Karl
+        index_paths: /mnt/collections/demo/4e19d236-63b0-11ea-bf45-0af36ad4b9a4/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/4e19d236-63b0-11ea-bf45-0af36ad4b9a4/qa/
+
+    04916027-889c-11ea-a740-0a2c1c4a8234: # Kainos
+        index_paths: /mnt/collections/demo/04916027-889c-11ea-a740-0a2c1c4a8234/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/04916027-889c-11ea-a740-0a2c1c4a8234/qa/
+
+    23369997-8983-11ea-a740-0a2c1c4a8234: # SFOX
+        index_paths: /mnt/collections/demo/23369997-8983-11ea-a740-0a2c1c4a8234/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/23369997-8983-11ea-a740-0a2c1c4a8234/qa/
+
+    fa688a6a-8982-11ea-a740-0a2c1c4a8234: # Cumberland Advisors
+        index_paths: /mnt/collections/demo/fa688a6a-8982-11ea-a740-0a2c1c4a8234/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/fa688a6a-8982-11ea-a740-0a2c1c4a8234/qa/
+
+    2b42d334-8ea7-11ea-a740-0a2c1c4a8234: # City Of Boston
+        index_paths: /mnt/collections/demo/2b42d334-8ea7-11ea-a740-0a2c1c4a8234/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/2b42d334-8ea7-11ea-a740-0a2c1c4a8234/qa/
+
+    bed53eb0-903e-11ea-a740-0a2c1c4a8234: # Varde Partners
+        index_paths: /mnt/collections/demo/bed53eb0-903e-11ea-a740-0a2c1c4a8234/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/bed53eb0-903e-11ea-a740-0a2c1c4a8234/qa/
+
+    e6413320-9031-11ea-a740-0a2c1c4a8234: # Rothschild
+        index_paths: /mnt/collections/demo/e6413320-9031-11ea-a740-0a2c1c4a8234/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/e6413320-9031-11ea-a740-0a2c1c4a8234/qa/
+
+    26bd3ada-8fdd-11ea-a740-0a2c1c4a8234: # Comfort
+        index_paths: /mnt/collections/demo/26bd3ada-8fdd-11ea-a740-0a2c1c4a8234/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/26bd3ada-8fdd-11ea-a740-0a2c1c4a8234/qa/
+
+    16271c50-8f1d-11ea-a740-0a2c1c4a8234: # Church of JC
+        index_paths: /mnt/collections/demo/16271c50-8f1d-11ea-a740-0a2c1c4a8234/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/16271c50-8f1d-11ea-a740-0a2c1c4a8234/qa/
+
+    90707b32-896b-11ea-a740-0a2c1c4a8234: # Stadtarchiv Marburg
+        index_paths: /mnt/collections/demo/90707b32-896b-11ea-a740-0a2c1c4a8234/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/90707b32-896b-11ea-a740-0a2c1c4a8234/qa/
+
+    df6253c3-950b-11ea-a740-0a2c1c4a8234: # UIB Group
+        index_paths: /mnt/collections/demo/df6253c3-950b-11ea-a740-0a2c1c4a8234/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/df6253c3-950b-11ea-a740-0a2c1c4a8234/qa/
+
+    dcd68f3a-99af-11ea-a740-0a2c1c4a8234: # DFA Institutional
+        index_paths: /mnt/collections/demo/dcd68f3a-99af-11ea-a740-0a2c1c4a8234/qa/
+        archive_paths: s3://mw-client-live-webarchives-demo/dcd68f3a-99af-11ea-a740-0a2c1c4a8234/qa/
+
+enable_cdx_api: true
 enable_memento: true
-
-# Replay content in an iframe
-framed_replay: true
-
+debug_echo_env: False
+debug_echo_req: False
