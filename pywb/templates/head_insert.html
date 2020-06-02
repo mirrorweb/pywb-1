@@ -32,7 +32,8 @@
 {% set whichWombat = 'wombat.js' %}
 {% endif %}
 {% if not wb_url.is_banner_only or (env.pywb_proxy_magic and (config.enable_auto_fetch or config.proxy.enable_wombat)) %}
-<script src='{{ static_prefix }}/{{ whichWombat }}'> </script>
+{#<script src='{{ static_prefix }}/{{ whichWombat }}'> </script>#}
+<script src='/webarchive/p2/static/{{ whichWombat }}'></script>
 <script>
   wbinfo.wombat_ts = "{{ wombat_ts }}";
   wbinfo.wombat_sec = "{{ wombat_sec }}";

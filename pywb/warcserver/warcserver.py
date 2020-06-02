@@ -37,7 +37,8 @@ SOURCE_LIST = [LiveIndexSource,
 
 # ============================================================================
 class WarcServer(BaseWarcServer):
-    AUTO_COLL_TEMPL = '{coll}'
+    # AUTO_COLL_TEMPL = '{coll}'
+    AUTO_COLL_TEMPL = 'webarchive/{{coll}}'
 
     def __init__(self, config_file='./config.yaml', custom_config=None):
         config = load_yaml_config(DEFAULT_CONFIG)

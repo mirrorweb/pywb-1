@@ -773,7 +773,7 @@ class RewriterApp(object):
         return self.query_view.render_to_string(environ, **params)
 
     def get_host_prefix(self, environ):
-        scheme = environ['wsgi.url_scheme'] + '://'
+        scheme = os.getenv('PYWB_SCHEME', 'http://')
 
         # proxy
         host = environ.get('wsgiprox.proxy_host')
@@ -797,8 +797,10 @@ class RewriterApp(object):
         return scheme + host
 
     def get_rel_prefix(self, environ):
-        # return request.script_name
-        return environ.get('SCRIPT_NAME') + '/'
+        if os.getenv('VIRTUAL_PREFIX'):
+            return os.getenv('VIRTUAL_PREFIX') + '/' + environ.get('SCRIPT_NAME') + '/'
+        else:
+            return environ.get('SCRIPT_NAME') + '/'
 
     def get_full_prefix(self, environ):
         return self.get_host_prefix(environ) + self.get_rel_prefix(environ)
